@@ -58,7 +58,7 @@ export interface LaborDetail {
 
 export interface ContractAttachment {
   name: string;
-  type: 'Contrato Social' | 'Serasa' | 'Orçamento' | 'Pedido' | 'Outros';
+  type: string; // Changed from union to string to support Safety/HR docs
   fileData: string; // Base64 string
 }
 
@@ -103,10 +103,33 @@ export interface ContractRequestData {
   correctionIndex: string;
   warranties: string;
   
-  // 7. Risk
+  // 7. Risk (Existing text field)
   urgenciesRisks: string;
 
-  // 8. Attachments
+  // 7.1 Legal & Risk Aspects (Checkboxes)
+  aspectStandardDraft: boolean;
+  aspectNonStandardDraft: boolean;
+  aspectConfidentiality: boolean;
+  aspectTermination: boolean;
+  aspectWarranties: boolean;
+  aspectWarrantyStart: boolean;
+  aspectPostTermination: boolean;
+  aspectPublicAgencies: boolean;
+  aspectAdvancePayment: boolean;
+  aspectNonStandard: boolean;
+
+  // 7.2 Mandatory Documents Checklist (New Checkboxes)
+  docCheckCommercial: boolean;
+  docCheckPO: boolean;
+  docCheckCompliance: boolean;
+  docCheckSupplierAcceptance: boolean;
+  docCheckSystemRegistration: boolean;
+  docCheckSupplierReport: boolean;
+  docCheckFiscalValidation: boolean;
+  docCheckSafetyDocs: boolean;
+  docCheckTrainingCertificates: boolean;
+
+  // 8 & 9. Attachments (General & Safety)
   attachments: ContractAttachment[];
 }
 

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -22,8 +23,31 @@ const steps = [
   'Equipe',
   'Recursos',
   'Financeiro',
+  'Aspectos Jurídicos',
+  'Doc. Obrigatórios',
   'Anexos',
+  'Segurança & RH',
   'Revisão'
+];
+
+// Safety and HR Document Lists
+const companyDocs = [
+  'PGR – Programa de Gerenciamento de Riscos',
+  'PCMSO – Programa de Controle Médico',
+  'ALVARÁ DE FUNCIONAMENTO',
+  'CARTÃO CNPJ',
+  'CND - Certidão negativa de débitos federais',
+  'CNDT - Certidão negativa de débitos trabalhistas',
+  'CRF - Certificado de Regularidade do FGTS',
+  'Lista de funcionários prestadores'
+];
+
+const employeeDocs = [
+  'ASO – Atestado de Saúde Ocupacional',
+  'Ficha de EPI',
+  'Registro dos colaboradores',
+  'OS – Ordem de Serviço de Segurança',
+  'Qualificação/Treinamento (NR10, NR33, NR35)'
 ];
 
 const ContractWizard: React.FC<ContractWizardProps> = ({ 
@@ -74,6 +98,29 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     warranties: '',
     
     urgenciesRisks: '',
+
+    // Legal Aspects
+    aspectStandardDraft: false,
+    aspectNonStandardDraft: false,
+    aspectConfidentiality: false,
+    aspectTermination: false,
+    aspectWarranties: false,
+    aspectWarrantyStart: false,
+    aspectPostTermination: false,
+    aspectPublicAgencies: false,
+    aspectAdvancePayment: false,
+    aspectNonStandard: false,
+
+    // Mandatory Documents Checklist (New)
+    docCheckCommercial: false,
+    docCheckPO: false,
+    docCheckCompliance: false,
+    docCheckSupplierAcceptance: false,
+    docCheckSystemRegistration: false,
+    docCheckSupplierReport: false,
+    docCheckFiscalValidation: false,
+    docCheckSafetyDocs: false,
+    docCheckTrainingCertificates: false,
     
     attachments: []
   });
@@ -148,7 +195,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     handleChange('laborDetails', newLabor);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: ContractAttachment['type']) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') {
@@ -159,12 +206,21 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        // Check if attachment of this type already exists, if so, replace it, otherwise add new
+        const existingIndex = formData.attachments.findIndex(a => a.type === type);
         const newAttachment: ContractAttachment = {
           name: file.name,
           type: type,
           fileData: base64
         };
-        handleChange('attachments', [...formData.attachments, newAttachment]);
+
+        if (existingIndex >= 0) {
+           const newAttachments = [...formData.attachments];
+           newAttachments[existingIndex] = newAttachment;
+           handleChange('attachments', newAttachments);
+        } else {
+           handleChange('attachments', [...formData.attachments, newAttachment]);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -173,6 +229,10 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   const removeAttachment = (index: number) => {
     const newAttachments = formData.attachments.filter((_, i) => i !== index);
     handleChange('attachments', newAttachments);
+  };
+
+  const getAttachmentStatus = (type: string) => {
+    return formData.attachments.some(a => a.type === type);
   };
 
   const handleFinish = async () => {
@@ -362,13 +422,16 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           </div>
         );
 
-      case 3: // Equipe (Prepostos)
+      case 3: // Equipe (Prepostos + Labor)
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">4. Equipe e Responsáveis</h3>
             
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Assinantes do Contrato</label>
+               <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center">
+                 <Users size={16} className="mr-2 text-primary-600"/>
+                 Representantes Legais (Assinantes)
+               </h4>
                {formData.prepostos.map((p, idx) => (
                  <div key={idx} className="flex flex-col md:flex-row gap-2 mb-3 items-start bg-gray-50 p-3 rounded-lg border border-gray-200">
                     <input 
@@ -412,10 +475,21 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
               />
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-6">
               <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">Haverá alocação de mão de obra?</label>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-800 flex items-center">
+                    <Briefcase size={16} className="mr-2 text-primary-600"/> 
+                    Quadro de Colaboradores (Mão de Obra)
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Liste a quantidade e função dos profissionais que atuarão na execução.
+                  </p>
+                </div>
                 <div className="flex items-center">
+                  <label className="mr-2 text-xs font-medium text-gray-600 cursor-pointer" onClick={() => handleChange('hasLabor', !formData.hasLabor)}>
+                    Alocação de pessoal?
+                  </label>
                   <button 
                     onClick={() => handleChange('hasLabor', !formData.hasLabor)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.hasLabor ? 'bg-primary-600' : 'bg-gray-200'}`}
@@ -426,37 +500,41 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
               </div>
               
               {formData.hasLabor && (
-                <div className="space-y-3">
-                   {formData.laborDetails.length === 0 && (
-                      <p className="text-xs text-gray-500 italic mb-2">Nenhum profissional adicionado.</p>
+                <div className="bg-white p-3 rounded border border-gray-200 space-y-3">
+                   {/* Header Row */}
+                   {formData.laborDetails.length > 0 && (
+                       <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 border-b pb-2 mb-2">
+                           <div className="col-span-2 text-center">Qtd</div>
+                           <div className="col-span-9">Função / Cargo</div>
+                           <div className="col-span-1"></div>
+                       </div>
                    )}
-                   
+
                    {formData.laborDetails.map((labor, idx) => (
-                      <div key={idx} className="flex gap-3 items-center">
-                         <div className="w-24">
-                            <label className="block text-xs text-gray-500 mb-1">Qtd.</label>
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                         <div className="col-span-2">
                             <input
                               type="number"
                               min="1"
-                              className="block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm"
+                              className="block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm text-center"
                               value={labor.quantity}
-                              onChange={(e) => updateLaborDetail(idx, 'quantity', parseInt(e.target.value))}
+                              onChange={(e) => updateLaborDetail(idx, 'quantity', parseInt(e.target.value) || 0)}
+                              placeholder="0"
                             />
                          </div>
-                         <div className="flex-1">
-                            <label className="block text-xs text-gray-500 mb-1">Função / Profissional</label>
+                         <div className="col-span-9">
                             <input 
                               type="text"
                               className="block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm"
-                              placeholder="Ex: Engenheiro Civil, Pedreiro..."
+                              placeholder="Ex: Pedreiro, Servente, Encanador..."
                               value={labor.role}
                               onChange={(e) => updateLaborDetail(idx, 'role', e.target.value)}
                             />
                          </div>
-                         <div className="mt-5">
+                         <div className="col-span-1 flex justify-end">
                             <button 
                               onClick={() => removeLaborDetail(idx)} 
-                              className="text-red-400 hover:text-red-600 p-2 rounded hover:bg-red-50"
+                              className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50"
                               title="Remover"
                             >
                               <Trash2 size={16} />
@@ -467,9 +545,9 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
 
                    <button 
                       onClick={addLaborDetail} 
-                      className="flex items-center text-sm text-primary-600 hover:text-primary-800 font-medium mt-2"
+                      className="w-full py-2 border-2 border-dashed border-gray-300 rounded-md text-sm text-gray-500 hover:border-primary-500 hover:text-primary-600 transition-colors flex items-center justify-center mt-2 bg-gray-50 hover:bg-white"
                    >
-                     <Plus size={16} className="mr-1" /> Adicionar Profissional
+                     <Plus size={16} className="mr-1" /> Adicionar Função
                    </button>
                 </div>
               )}
@@ -679,10 +757,91 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           </div>
         );
 
-      case 6: // Anexos
+      case 6: // Aspectos Jurídicos
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">7. Anexar Documentos (Opcional)</h3>
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">7. Aspectos Jurídicos e de Risco</h3>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 flex items-start">
+              <Scale className="text-orange-500 mt-0.5 mr-3" size={20} />
+              <p className="text-sm text-orange-800">
+                Selecione os itens que devem constar no contrato. Isso orientará a elaboração da minuta.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {[
+                { key: 'aspectStandardDraft', label: 'Minuta padrão' },
+                { key: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
+                { key: 'aspectConfidentiality', label: 'Cláusulas de confidencialidade' },
+                { key: 'aspectTermination', label: 'Cláusulas de rescisão e penalidades' },
+                { key: 'aspectWarranties', label: 'Garantias exigidas (performance, entrega)' },
+                { key: 'aspectWarrantyStart', label: 'Contagem da garantia (entrega/execução)' },
+                { key: 'aspectPostTermination', label: 'Obrigações pós-encerramento (sigilo)' },
+                { key: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
+                { key: 'aspectAdvancePayment', label: 'Cláusula de antecipação de pagamento' },
+                { key: 'aspectNonStandard', label: 'Condições não padrão (Outros)' },
+              ].map((item) => (
+                <div key={item.key} className="flex items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                  <input
+                    id={item.key}
+                    type="checkbox"
+                    checked={(formData as any)[item.key]}
+                    onChange={(e) => handleChange(item.key as keyof ContractRequestData, e.target.checked)}
+                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor={item.key} className="ml-3 text-sm text-gray-700 cursor-pointer select-none">
+                    {item.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 7: // Documentos Obrigatórios (Checklist)
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">8. Documentos Obrigatórios</h3>
+            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 flex items-start">
+              <FileCheck className="text-emerald-500 mt-0.5 mr-3" size={20} />
+              <p className="text-sm text-emerald-800">
+                Confirme se os seguintes documentos estão disponíveis e validados antes de prosseguir com os anexos.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 mt-4">
+              {[
+                { key: 'docCheckCommercial', label: 'Acordo Comercial (escopo definido com o fornecedor)' },
+                { key: 'docCheckPO', label: 'Pedido de Compra (PO), se já emitido' },
+                { key: 'docCheckCompliance', label: 'Termo de Conformidade (se aplicável)' },
+                { key: 'docCheckSupplierAcceptance', label: 'Confirmação de aceite do fornecedor (e-mail ou assinatura eletrônica)' },
+                { key: 'docCheckSystemRegistration', label: 'Registro no sistema de gestão contratual (se aplicável)' },
+                { key: 'docCheckSupplierReport', label: 'Relatório de avaliação do fornecedor (se aplicável)' },
+                { key: 'docCheckFiscalValidation', label: 'Documentos fiscais validados pela área financeira' },
+                { key: 'docCheckSafetyDocs', label: 'Documentos de segurança do trabalho (se houver prestação presencial)' },
+                { key: 'docCheckTrainingCertificates', label: 'Certificados de treinamentos obrigatórios (NRs, ASO, EPI, etc.)' },
+              ].map((item) => (
+                <div key={item.key} className="flex items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors bg-white">
+                  <input
+                    id={item.key}
+                    type="checkbox"
+                    checked={(formData as any)[item.key]}
+                    onChange={(e) => handleChange(item.key as keyof ContractRequestData, e.target.checked)}
+                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor={item.key} className="ml-3 text-sm text-gray-700 cursor-pointer select-none">
+                    {item.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 8: // Anexos
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">9. Anexar Documentos Contratuais</h3>
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                <p className="text-sm text-yellow-800 flex items-center">
                  <AlertCircle size={16} className="mr-2"/>
@@ -696,21 +855,28 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                  { label: 'Relatório Serasa', type: 'Serasa' },
                  { label: 'Orçamento Aprovado', type: 'Orçamento' },
                  { label: 'Pedido de Compra', type: 'Pedido' }
-               ].map((item) => (
-                 <div key={item.type} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <h4 className="font-medium text-gray-700 mb-2">{item.label}</h4>
-                    <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-                       <Upload size={16} className="mr-2"/>
-                       Selecionar PDF
-                       <input 
-                         type="file" 
-                         accept="application/pdf"
-                         className="hidden" 
-                         onChange={(e) => handleFileUpload(e, item.type as any)}
-                       />
-                    </label>
-                 </div>
-               ))}
+               ].map((item) => {
+                 const isAttached = getAttachmentStatus(item.type);
+                 return (
+                   <div key={item.type} className={`border rounded-lg p-4 transition-colors ${isAttached ? 'bg-green-50 border-green-200' : 'hover:bg-gray-50'}`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className={`font-medium ${isAttached ? 'text-green-800' : 'text-gray-700'}`}>{item.label}</h4>
+                        {isAttached && <Check size={16} className="text-green-600" />}
+                      </div>
+                      <label className={`cursor-pointer inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium w-full justify-center transition-colors
+                        ${isAttached ? 'bg-white border-green-300 text-green-700 hover:bg-green-50' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                         <Upload size={16} className="mr-2"/>
+                         {isAttached ? 'Substituir PDF' : 'Selecionar PDF'}
+                         <input 
+                           type="file" 
+                           accept="application/pdf"
+                           className="hidden" 
+                           onChange={(e) => handleFileUpload(e, item.type)}
+                         />
+                      </label>
+                   </div>
+                 );
+               })}
             </div>
 
             {formData.attachments.length > 0 && (
@@ -737,10 +903,85 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           </div>
         );
 
-      case 7: // Review
+      case 9: // Segurança e RH
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">8. Revisão da Solicitação</h3>
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">10. Segurança e RH</h3>
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 flex items-start">
+              <HardHat className="text-indigo-500 mt-0.5 mr-3" size={20} />
+              <p className="text-sm text-indigo-800">
+                Anexe os documentos específicos de Segurança do Trabalho e RH conforme aplicável.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                  <Building size={18} className="mr-2 text-primary-600"/> Documentos da Empresa
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {companyDocs.map((docType) => {
+                    const isAttached = getAttachmentStatus(docType);
+                    return (
+                      <div key={docType} className={`border rounded-lg p-3 transition-colors ${isAttached ? 'bg-green-50 border-green-200' : 'bg-white hover:bg-gray-50'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`text-xs font-medium ${isAttached ? 'text-green-800' : 'text-gray-700'}`}>{docType}</span>
+                          {isAttached && <Check size={14} className="text-green-600 flex-shrink-0 ml-2" />}
+                        </div>
+                        <label className={`cursor-pointer flex items-center justify-center px-2 py-1.5 border rounded text-xs font-medium w-full transition-colors
+                          ${isAttached ? 'bg-white border-green-300 text-green-700 hover:bg-green-50' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                           <Upload size={12} className="mr-1.5"/>
+                           {isAttached ? 'Alterar' : 'Anexar PDF'}
+                           <input 
+                             type="file" 
+                             accept="application/pdf"
+                             className="hidden" 
+                             onChange={(e) => handleFileUpload(e, docType)}
+                           />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                  <Users size={18} className="mr-2 text-primary-600"/> Documentos do Colaborador
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {employeeDocs.map((docType) => {
+                    const isAttached = getAttachmentStatus(docType);
+                    return (
+                      <div key={docType} className={`border rounded-lg p-3 transition-colors ${isAttached ? 'bg-green-50 border-green-200' : 'bg-white hover:bg-gray-50'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`text-xs font-medium ${isAttached ? 'text-green-800' : 'text-gray-700'}`}>{docType}</span>
+                          {isAttached && <Check size={14} className="text-green-600 flex-shrink-0 ml-2" />}
+                        </div>
+                        <label className={`cursor-pointer flex items-center justify-center px-2 py-1.5 border rounded text-xs font-medium w-full transition-colors
+                          ${isAttached ? 'bg-white border-green-300 text-green-700 hover:bg-green-50' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                           <Upload size={12} className="mr-1.5"/>
+                           {isAttached ? 'Alterar' : 'Anexar PDF'}
+                           <input 
+                             type="file" 
+                             accept="application/pdf"
+                             className="hidden" 
+                             onChange={(e) => handleFileUpload(e, docType)}
+                           />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 10: // Review
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">11. Revisão da Solicitação</h3>
             
             <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 space-y-4 text-sm text-gray-800">
                <div className="grid grid-cols-2 gap-4">
@@ -784,12 +1025,45 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                   )}
                </div>
 
+               {/* Legal Section Review */}
+               <div className="border-t border-gray-200 pt-4">
+                  <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Aspectos Jurídicos Selecionados</h4>
+                  <ul className="list-disc list-inside text-xs text-gray-700 grid grid-cols-2 gap-1">
+                    {formData.aspectStandardDraft && <li>Minuta padrão</li>}
+                    {formData.aspectNonStandardDraft && <li>Minuta NÃO padrão</li>}
+                    {formData.aspectConfidentiality && <li>Cláusulas de confidencialidade</li>}
+                    {formData.aspectTermination && <li>Rescisão e penalidades</li>}
+                    {formData.aspectWarranties && <li>Garantias exigidas</li>}
+                    {formData.aspectWarrantyStart && <li>Contagem da garantia</li>}
+                    {formData.aspectPostTermination && <li>Obrigações pós-encerramento</li>}
+                    {formData.aspectPublicAgencies && <li>Interação com órgãos públicos</li>}
+                    {formData.aspectAdvancePayment && <li>Antecipação de pagamento</li>}
+                    {formData.aspectNonStandard && <li>Condições não padrão</li>}
+                  </ul>
+               </div>
+
+               {/* Mandatory Docs Review */}
+               <div className="border-t border-gray-200 pt-4">
+                  <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Documentos Obrigatórios Verificados</h4>
+                  <ul className="list-disc list-inside text-xs text-gray-700 grid grid-cols-2 gap-1">
+                    {formData.docCheckCommercial && <li>Acordo Comercial</li>}
+                    {formData.docCheckPO && <li>Pedido de Compra (PO)</li>}
+                    {formData.docCheckCompliance && <li>Termo de Conformidade</li>}
+                    {formData.docCheckSupplierAcceptance && <li>Aceite do Fornecedor</li>}
+                    {formData.docCheckSystemRegistration && <li>Registro no Sistema</li>}
+                    {formData.docCheckSupplierReport && <li>Relatório de Avaliação</li>}
+                    {formData.docCheckFiscalValidation && <li>Documentos Fiscais</li>}
+                    {formData.docCheckSafetyDocs && <li>Docs Segurança do Trabalho</li>}
+                    {formData.docCheckTrainingCertificates && <li>Certificados de Treinamento</li>}
+                  </ul>
+               </div>
+
                {formData.attachments.length > 0 && (
                    <div className="border-t border-gray-200 pt-4">
-                     <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Anexos ({formData.attachments.length})</h4>
-                     <ul className="text-xs text-gray-600">
+                     <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Todos os Anexos ({formData.attachments.length})</h4>
+                     <ul className="text-xs text-gray-600 grid grid-cols-2 gap-1">
                         {formData.attachments.map((a, i) => (
-                           <li key={i}>• {a.type} - {a.name}</li>
+                           <li key={i} className="truncate" title={a.name}>• {a.type}</li>
                         ))}
                      </ul>
                    </div>

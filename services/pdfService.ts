@@ -1,3 +1,4 @@
+
 import { jsPDF } from "jspdf";
 import { PDFDocument } from "pdf-lib";
 import { ContractRequestData, Supplier, CompanySettings } from "../types";
@@ -130,6 +131,20 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     return totalBlockHeight;
   };
 
+  const drawCheckbox = (label: string, checked: boolean, x: number, y: number) => {
+    doc.setDrawColor(100);
+    doc.rect(x, y, 4, 4);
+    if (checked) {
+      doc.setFont("zapfdingbats");
+      doc.setFontSize(10);
+      doc.text("4", x + 0.5, y + 3.2);
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    doc.text(label, x + 6, y + 3.5);
+  };
+
   // --- CONTENT GENERATION ---
 
   drawHeader();
@@ -148,19 +163,6 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
 
   printSection("2. Documentação e Compliance");
   const docY = currentY;
-  const drawCheckbox = (label: string, checked: boolean, x: number, y: number) => {
-    doc.setDrawColor(100);
-    doc.rect(x, y, 4, 4);
-    if (checked) {
-      doc.setFont("zapfdingbats");
-      doc.setFontSize(10);
-      doc.text("4", x + 0.5, y + 3.2);
-    }
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(0);
-    doc.text(label, x + 6, y + 3.5);
-  };
   drawCheckbox("Contrato Social", data.docSocialContract, margin, docY);
   drawCheckbox("Pesquisas Serasa/Certidões", data.docSerasa, margin + 60, docY);
   currentY += 10;
@@ -280,17 +282,80 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     currentY += (riskLines.length * 4.5) + 5;
   }
 
-  // --- ATTACHMENTS SECTION TITLE ---
+  // --- SECTION: Legal Aspects ---
+  printSection("7.1. Aspectos Jurídicos e de Risco");
+  
+  const drawAspect = (label: string, checked: boolean) => {
+      checkPageBreak(6);
+      drawCheckbox(label, checked, margin, currentY);
+      currentY += 6;
+  };
+
+  drawAspect("Minuta padrão", data.aspectStandardDraft);
+  drawAspect("Minuta NÃO padrão", data.aspectNonStandardDraft);
+  drawAspect("Cláusulas de confidencialidade", data.aspectConfidentiality);
+  drawAspect("Cláusulas de rescisão e penalidades", data.aspectTermination);
+  drawAspect("Garantias exigidas (performance, entrega)", data.aspectWarranties);
+  drawAspect("Contagem da garantia (entrega/execução)", data.aspectWarrantyStart);
+  drawAspect("Obrigações pós-encerramento (sigilo)", data.aspectPostTermination);
+  drawAspect("Interação com órgãos públicos", data.aspectPublicAgencies);
+  drawAspect("Cláusula de antecipação de pagamento", data.aspectAdvancePayment);
+  drawAspect("Condições não padrão (Outros)", data.aspectNonStandard);
+  
+  currentY += 2;
+
+  // --- SECTION: Mandatory Documents ---
+  printSection("7.2. Checklist de Documentos Obrigatórios");
+  
+  drawAspect("Acordo Comercial", data.docCheckCommercial);
+  drawAspect("Pedido de Compra (PO)", data.docCheckPO);
+  drawAspect("Termo de Conformidade", data.docCheckCompliance);
+  drawAspect("Confirmação de aceite do fornecedor", data.docCheckSupplierAcceptance);
+  drawAspect("Registro no sistema de gestão", data.docCheckSystemRegistration);
+  drawAspect("Relatório de avaliação", data.docCheckSupplierReport);
+  drawAspect("Documentos fiscais validados", data.docCheckFiscalValidation);
+  drawAspect("Documentos de segurança do trabalho", data.docCheckSafetyDocs);
+  drawAspect("Certificados de treinamentos", data.docCheckTrainingCertificates);
+
+  currentY += 2;
+
+  // --- SECTION: Attachments (Split into Contractual and Safety/HR) ---
   if (data.attachments && data.attachments.length > 0) {
-    checkPageBreak(20);
+    checkPageBreak(30);
     printSection("8. Documentos Anexos");
-    doc.setFont("helvetica", "normal");
-    doc.text("Os documentos originais anexados a seguir compõem este dossiê:", margin, currentY);
-    currentY += 5;
-    data.attachments.forEach(att => {
-        doc.text(`• ${att.type}: ${att.name}`, margin + 5, currentY);
+    
+    // Define standard types for filtering
+    const standardTypes = ['Contrato Social', 'Serasa', 'Orçamento', 'Pedido'];
+    
+    const contractualDocs = data.attachments.filter(a => standardTypes.includes(a.type));
+    const safetyHrDocs = data.attachments.filter(a => !standardTypes.includes(a.type));
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    
+    if (contractualDocs.length > 0) {
+        doc.text("Documentos Contratuais:", margin, currentY);
         currentY += 5;
-    });
+        doc.setFont("helvetica", "normal");
+        contractualDocs.forEach(att => {
+            doc.text(`• ${att.type}: ${att.name}`, margin + 5, currentY);
+            currentY += 5;
+        });
+        currentY += 3;
+    }
+
+    if (safetyHrDocs.length > 0) {
+        checkPageBreak(15 + (safetyHrDocs.length * 5));
+        doc.setFont("helvetica", "bold");
+        doc.text("Segurança do Trabalho e RH:", margin, currentY);
+        currentY += 5;
+        doc.setFont("helvetica", "normal");
+        safetyHrDocs.forEach(att => {
+            doc.text(`• ${att.type}: ${att.name}`, margin + 5, currentY);
+            currentY += 5;
+        });
+    }
   }
 
   checkPageBreak(40);
