@@ -20,7 +20,10 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
     estimatedValue: 0,
     startDate: '',
     endDate: '',
-    status: 'Planned'
+    status: 'Planned',
+    type: 'Other',
+    attachments: [],
+    requiredNRs: []
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,7 +39,10 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
       estimatedValue: Number(formData.estimatedValue) || 0,
       startDate: formData.startDate || '',
       endDate: formData.endDate || '',
-      status: formData.status as 'Active' | 'Completed' | 'Planned' || 'Planned'
+      status: (formData.status as any) || 'Planned',
+      type: formData.type || 'Other',
+      attachments: formData.attachments || [],
+      requiredNRs: formData.requiredNRs || []
     };
 
     if (editingId) {
@@ -58,7 +64,10 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
       estimatedValue: 0,
       startDate: '',
       endDate: '',
-      status: 'Planned'
+      status: 'Planned',
+      type: 'Other',
+      attachments: [],
+      requiredNRs: []
     });
     setEditingId(null);
   };

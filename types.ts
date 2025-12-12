@@ -33,6 +33,19 @@ export interface Unit {
   phone?: string;
 }
 
+export interface NR {
+  id: string;
+  number: string;
+  name: string;
+  description: string;
+}
+
+export interface ProjectAttachment {
+  name: string;
+  url: string; // In a real app this is a URL, here base64 or mock
+  type: 'Photo' | 'Scope' | 'Project' | 'Other';
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -42,7 +55,12 @@ export interface Project {
   estimatedValue: number;
   startDate: string;
   endDate: string;
-  status: 'Active' | 'Completed' | 'Planned';
+  
+  // Engineering Specifics
+  type: 'Improvement' | 'Adaptation' | 'Acquisition' | 'Renovation' | 'Compliance' | 'Maintenance' | 'Other';
+  status: 'Active' | 'Completed' | 'Planned' | 'On Hold';
+  attachments: ProjectAttachment[];
+  requiredNRs: string[]; // IDs of required NRs
 }
 
 export interface Preposto {

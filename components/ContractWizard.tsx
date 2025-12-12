@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase, Info, Link as LinkIcon } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -17,7 +17,7 @@ interface ContractWizardProps {
 }
 
 const steps = [
-  'Fornecedor',
+  'Fornecedor & Projeto',
   'Legal',
   'Escopo',
   'Equipe',
@@ -157,6 +157,33 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // SYNC LOGIC: When a project is selected, pull data from Engineering
+  const handleProjectSelection = (projectId: string) => {
+    handleChange('projectId', projectId);
+    
+    if (!projectId) return;
+
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+        // Auto-fill fields from Engineering Data if they are empty or to update context
+        setFormData(prev => ({
+            ...prev,
+            projectId: projectId,
+            // Pre-fill Object with Project Name
+            objectDescription: prev.objectDescription || project.name,
+            // Pre-fill Scope with Project Description
+            scopeDescription: prev.scopeDescription || project.description,
+            // Pre-fill Dates
+            startDate: prev.startDate || project.startDate,
+            endDate: prev.endDate || project.endDate,
+            // Pre-fill Value (Budget/Estimate)
+            value: prev.value || project.estimatedValue,
+            // Try to match unit name
+            serviceLocation: units.find(u => u.id === project.unitId)?.name || prev.serviceLocation
+        }));
+    }
+  };
+
   const handleAiDraft = async (field: keyof ContractRequestData, contextStep: string) => {
     setAiGenerating(true);
     const clause = await generateContractClause(contextStep, formData);
@@ -251,12 +278,13 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
 
   const renderStepContent = () => {
     const selectedSupplier = suppliers.find(s => s.id === formData.supplierId);
+    const selectedProject = projects.find(p => p.id === formData.projectId);
 
     switch (currentStep) {
       case 0: // Fornecedor e Local
         return (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">1. Dados do Fornecedor e Local</h3>
+            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">1. Dados do Fornecedor e Projeto</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Fornecedor / CNPJ</label>
@@ -278,6 +306,42 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                   <div className="bg-gray-50 p-3 rounded-md col-span-2 border border-gray-200 text-sm">
                     <p><strong>Endereço:</strong> {selectedSupplier.address}</p>
                     <p><strong>CNPJ:</strong> {selectedSupplier.cnpj}</p>
+                  </div>
+
+                  {/* PROJECT SYNC SECTION */}
+                  <div className="col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center">
+                        <LinkIcon size={16} className="mr-2"/>
+                        Vincular Projeto de Engenharia (Sincronismo)
+                    </label>
+                    <select
+                      className="mt-1 block w-full rounded-md border-blue-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.projectId}
+                      onChange={(e) => handleProjectSelection(e.target.value)}
+                    >
+                      <option value="">Selecione um projeto para importar dados...</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>
+                            {p.name} ({p.status === 'Active' ? 'Ativo' : 'Planejado'})
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {selectedProject && (
+                        <div className="mt-3 text-xs text-blue-800 space-y-1">
+                            <p className="font-semibold flex items-center"><Info size={12} className="mr-1"/> Dados importados da Engenharia:</p>
+                            <ul className="list-disc list-inside pl-2">
+                                <li>Centro de Custo: {selectedProject.costCenter}</li>
+                                <li>Valor (BID): R$ {selectedProject.estimatedValue.toLocaleString('pt-BR')}</li>
+                                <li>Prazo: {new Date(selectedProject.startDate).toLocaleDateString()} a {new Date(selectedProject.endDate).toLocaleDateString()}</li>
+                                {selectedProject.requiredNRs && selectedProject.requiredNRs.length > 0 && (
+                                    <li className="font-bold text-red-600">
+                                        NRs Exigidas: {selectedProject.requiredNRs.map(nr => nr.toUpperCase().replace('NR', '')).join(', ')}
+                                    </li>
+                                )}
+                            </ul>
+                        </div>
+                    )}
                   </div>
 
                   <div className="col-span-2">
@@ -314,20 +378,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                       value={formData.serviceType}
                       readOnly
                     />
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Projeto Vinculado (Opcional)</label>
-                    <select
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                      value={formData.projectId}
-                      onChange={(e) => handleChange('projectId', e.target.value)}
-                    >
-                      <option value="">Selecione o projeto...</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
                   </div>
                 </>
               )}
@@ -998,6 +1048,14 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                     <p>{formData.startDate} até {formData.endDate}</p>
                   </div>
                </div>
+               
+               {selectedProject && (
+                   <div className="border-t border-gray-200 pt-4 bg-blue-50 -mx-6 px-6 py-2">
+                      <h4 className="font-semibold text-blue-700 uppercase text-xs mb-1">Projeto Vinculado (Engenharia)</h4>
+                      <p className="font-medium">{selectedProject.name}</p>
+                      <p className="text-xs">CC: {selectedProject.costCenter}</p>
+                   </div>
+               )}
                
                <div className="border-t border-gray-200 pt-4">
                   <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Objeto</h4>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,8 +8,10 @@ import {
   Menu, 
   X, 
   Settings,
-  CheckSquare
+  CheckSquare,
+  LogOut
 } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,11 +21,25 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('Usuário');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload(); // Force reload to trigger auth guard in App.tsx
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} /> },
     { id: 'suppliers', label: 'Fornecedores', icon: <Users size={20} /> },
-    { id: 'projects', label: 'Projetos', icon: <Briefcase size={20} /> },
+    { id: 'projects', label: 'Projetos (Simples)', icon: <Briefcase size={20} /> },
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
     { id: 'types', label: 'Tipos de Serviço', icon: <CheckSquare size={20} /> },
@@ -82,19 +98,30 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-primary-800">
-          <button 
+        <div className="absolute bottom-0 w-full p-4 border-t border-primary-800 space-y-1">
+           <button 
             onClick={() => {
               onNavigate('settings');
               setIsSidebarOpen(false);
             }}
             className={`
-              flex items-center w-full px-4 py-2 text-sm font-medium transition-colors
-              ${activeTab === 'settings' ? 'text-white' : 'text-primary-200 hover:text-white'}
+              flex items-center w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors mb-2
+              ${activeTab === 'settings' ? 'bg-primary-800 text-white' : 'text-primary-200 hover:text-white hover:bg-primary-800'}
             `}
           >
             <Settings size={20} className="mr-3" />
             Configurações
+          </button>
+          
+          <button 
+            onClick={() => {
+              onNavigate('home');
+              setIsSidebarOpen(false);
+            }}
+            className="flex items-center w-full px-4 py-2 text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800 rounded-lg transition-colors"
+          >
+            <LogOut size={20} className="mr-3" />
+            Voltar ao Portal
           </button>
         </div>
       </aside>
@@ -107,11 +134,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
           </button>
           <div className="flex items-center space-x-4 ml-auto">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-gray-900">Admin User</p>
-              <p className="text-xs text-gray-500">Gestor de Contratos</p>
+              <p className="text-sm font-medium text-gray-900 max-w-[150px] truncate">{userEmail}</p>
+              <button 
+                onClick={handleLogout}
+                className="text-xs text-red-500 hover:text-red-700 font-medium"
+              >
+                Sair do sistema
+              </button>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-primary-200">
-              AD
+            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-primary-200 uppercase">
+              {userEmail.substring(0, 2)}
             </div>
           </div>
         </header>
