@@ -1,34 +1,50 @@
 
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
-import { Lock, Loader2, AlertCircle, ShieldCheck, Globe } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, ShieldCheck, Globe, ExternalLink } from 'lucide-react';
 
 interface LoginPageProps {
   onDemoLogin?: () => void;
 }
 
+interface AuthErrorState {
+  message: string;
+  isProviderError: boolean;
+}
+
 const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AuthErrorState | null>(null);
 
   const handleGoogleLogin = async () => {
     if (!isSupabaseConfigured) {
-      setError("O sistema ainda não está conectado à nuvem. Verifique as chaves de configuração.");
+      setError({ message: "O sistema ainda não está conectado à nuvem. Verifique as chaves de configuração.", isProviderError: false });
       return;
     }
     
     setLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin
         }
       });
-      if (error) throw error;
+      
+      if (authError) throw authError;
     } catch (err: any) {
-      setError(err.message || 'Erro ao conectar com o Google. Certifique-se de que o Google Auth está ativado no Supabase.');
+      console.error("Erro de autenticação:", err);
+      const msg = typeof err === 'string' ? err : (err?.message || 'Erro inesperado ao conectar.');
+      
+      if (msg.includes("provider is not enabled")) {
+        setError({ 
+          message: "O login via Google não está ativado no seu painel Supabase. Vá em Authentication > Providers > Google e ative-o.", 
+          isProviderError: true 
+        });
+      } else {
+        setError({ message: msg, isProviderError: false });
+      }
       setLoading(false);
     }
   };
@@ -51,9 +67,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
         <p className="text-slate-500 mb-10 text-sm font-medium">Contratos e Homologação • Grupo RB</p>
 
         {error && (
-          <div className="p-4 rounded-2xl mb-8 text-xs flex items-start bg-red-50 text-red-700 text-left border border-red-100 animate-shake">
-            <AlertCircle size={18} className="mr-3 mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
+          <div className={`p-4 rounded-2xl mb-8 text-xs flex flex-col text-left border animate-shake ${error.isProviderError ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
+            <div className="flex items-start">
+              <AlertCircle size={18} className="mr-3 mt-0.5 flex-shrink-0" />
+              <span className="font-medium">{error.message}</span>
+            </div>
+            {error.isProviderError && (
+              <a 
+                href="https://supabase.com/dashboard" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="mt-3 ml-7 flex items-center gap-1 font-bold underline hover:text-amber-900"
+              >
+                Abrir Painel Supabase <ExternalLink size={12} />
+              </a>
+            )}
           </div>
         )}
 
@@ -73,12 +101,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
             )}
           </button>
 
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-white px-2 text-slate-400 font-medium">ou</span></div>
+          </div>
+
           {onDemoLogin && (
             <button
               onClick={onDemoLogin}
-              className="w-full py-3 px-6 rounded-2xl text-xs font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors uppercase tracking-widest"
+              className="w-full py-4 px-6 rounded-2xl text-sm font-black text-white bg-slate-800 hover:bg-slate-900 transition-all shadow-lg hover:shadow-slate-200 flex items-center justify-center gap-2"
             >
-              Acesso Rápido (Demonstração)
+              <ShieldCheck size={18} className="text-emerald-400" />
+              Acesso de Demonstração
             </button>
           )}
         </div>
