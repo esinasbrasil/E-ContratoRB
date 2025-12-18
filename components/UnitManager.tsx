@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Unit } from '../types';
 import { Plus, Trash2, Building2, MapPin, Phone, Mail, FileText, Pencil, X } from 'lucide-react';
@@ -25,34 +24,50 @@ const UnitManager: React.FC<UnitManagerProps> = ({ units, onAdd, onUpdate, onDel
     e.preventDefault();
     if (!formData.name || !formData.cnpj) return;
 
-    if (editingId) {
-      // Update Mode
-      const updatedUnit: Unit = {
-        id: editingId,
-        name: formData.name,
-        cnpj: formData.cnpj,
-        address: formData.address || '',
-        ie: formData.ie,
-        email: formData.email,
-        phone: formData.phone
-      };
-      onUpdate(updatedUnit);
-      setEditingId(null);
-    } else {
-      // Create Mode
-      const newUnit: Unit = {
-        id: Date.now().toString(),
-        name: formData.name,
-        cnpj: formData.cnpj,
-        address: formData.address || '',
-        ie: formData.ie,
-        email: formData.email,
-        phone: formData.phone
-      };
-      onAdd(newUnit);
+    try {
+        let unitData: Unit;
+        if (editingId) {
+          // Update Mode
+          unitData = {
+            id: editingId,
+            name: formData.name,
+            cnpj: formData.cnpj,
+            address: formData.address || '',
+            ie: formData.ie,
+            email: formData.email,
+            phone: formData.phone
+          };
+          
+          console.group("--- DEBUG: ATUALIZANDO UNIDADE ---");
+          console.log("Dados:", unitData);
+          console.groupEnd();
+          
+          onUpdate(unitData);
+          setEditingId(null);
+        } else {
+          // Create Mode
+          unitData = {
+            id: crypto.randomUUID(),
+            name: formData.name,
+            cnpj: formData.cnpj,
+            address: formData.address || '',
+            ie: formData.ie,
+            email: formData.email,
+            phone: formData.phone
+          };
+          
+          console.group("--- DEBUG: CRIANDO UNIDADE ---");
+          console.log("Dados:", unitData);
+          console.groupEnd();
+
+          onAdd(unitData);
+        }
+        
+        setFormData({ name: '', cnpj: '', address: '', ie: '', email: '', phone: '' });
+    } catch (error) {
+        console.error("Erro ao salvar unidade:", error);
+        alert("Erro ao salvar unidade.");
     }
-    
-    setFormData({ name: '', cnpj: '', address: '', ie: '', email: '', phone: '' });
   };
 
   const handleEditClick = (unit: Unit) => {

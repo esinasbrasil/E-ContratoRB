@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,9 +9,9 @@ import {
   X, 
   Settings,
   CheckSquare,
-  LogOut
+  LogOut,
+  UserCircle
 } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,20 +21,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string>('Usuário');
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email) {
-        setUserEmail(data.user.email);
-      }
-    });
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload(); // Force reload to trigger auth guard in App.tsx
-  };
+  const [userEmail] = useState<string>('Local User');
 
   const menuItems = [
     { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} /> },
@@ -135,15 +122,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
           <div className="flex items-center space-x-4 ml-auto">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-gray-900 max-w-[150px] truncate">{userEmail}</p>
-              <button 
-                onClick={handleLogout}
-                className="text-xs text-red-500 hover:text-red-700 font-medium"
-              >
-                Sair do sistema
-              </button>
+              <span className="text-xs text-green-500 font-medium flex justify-end items-center">
+                 <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Online (Local)
+              </span>
             </div>
             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-primary-200 uppercase">
-              {userEmail.substring(0, 2)}
+              <UserCircle size={24}/>
             </div>
           </div>
         </header>

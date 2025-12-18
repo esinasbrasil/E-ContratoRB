@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ServiceCategory } from '../types';
 import { Plus, Trash2, CheckSquare, Layers } from 'lucide-react';
@@ -17,15 +16,19 @@ const ServiceTypeManager: React.FC<ServiceTypeManagerProps> = ({ services, onAdd
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newService: ServiceCategory = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      description: description.trim()
-    };
+    try {
+        const newService: ServiceCategory = {
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          description: description.trim()
+        };
 
-    onAdd(newService);
-    setName('');
-    setDescription('');
+        onAdd(newService);
+        setName('');
+        setDescription('');
+    } catch (error) {
+        console.error("Erro ao adicionar categoria:", error);
+    }
   };
 
   return (

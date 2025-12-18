@@ -30,29 +30,38 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
     e.preventDefault();
     if (!formData.name || !formData.unitId) return;
 
-    const projectData: Project = {
-      id: editingId || Date.now().toString(),
-      name: formData.name,
-      unitId: formData.unitId,
-      costCenter: formData.costCenter || '',
-      description: formData.description || '',
-      estimatedValue: Number(formData.estimatedValue) || 0,
-      startDate: formData.startDate || '',
-      endDate: formData.endDate || '',
-      status: (formData.status as any) || 'Planned',
-      type: formData.type || 'Other',
-      attachments: formData.attachments || [],
-      requiredNRs: formData.requiredNRs || []
-    };
+    try {
+        const projectData: Project = {
+          id: editingId || crypto.randomUUID(),
+          name: formData.name,
+          unitId: formData.unitId,
+          costCenter: formData.costCenter || '',
+          description: formData.description || '',
+          estimatedValue: Number(formData.estimatedValue) || 0,
+          startDate: formData.startDate || '',
+          endDate: formData.endDate || '',
+          status: (formData.status as any) || 'Planned',
+          type: formData.type || 'Other',
+          attachments: formData.attachments || [],
+          requiredNRs: formData.requiredNRs || []
+        };
+        
+        console.group("--- DEBUG: SALVANDO PROJETO ---");
+        console.log("Dados do Projeto:", projectData);
+        console.groupEnd();
 
-    if (editingId) {
-      onUpdate(projectData);
-      setEditingId(null);
-    } else {
-      onAdd(projectData);
+        if (editingId) {
+          onUpdate(projectData);
+          setEditingId(null);
+        } else {
+          onAdd(projectData);
+        }
+        
+        resetForm();
+    } catch (error) {
+        console.error("Erro ao salvar projeto:", error);
+        alert("Erro ao salvar projeto. Verifique o console.");
     }
-    
-    resetForm();
   };
 
   const resetForm = () => {

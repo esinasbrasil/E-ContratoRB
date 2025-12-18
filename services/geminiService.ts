@@ -1,5 +1,7 @@
+
 import { GoogleGenAI } from "@google/genai";
 
+// Fix: Use process.env.API_KEY directly as per @google/genai guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeSupplierRisk = async (supplierName: string, serviceType: string): Promise<string> => {
@@ -8,8 +10,9 @@ export const analyzeSupplierRisk = async (supplierName: string, serviceType: str
     Provide a concise risk assessment in 3 bullet points focusing on operational, financial, and compliance risks. 
     Keep it professional and generic based on the service type since this is a simulation.`;
 
+    // Fix: Use 'gemini-3-flash-preview' for basic text tasks according to guidelines.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
@@ -29,8 +32,9 @@ export const generateContractClause = async (step: string, contextData: any): Pr
     
     Write a professional contract clause (in Portuguese) based on this information. Keep it formal and legally sound.`;
 
+    // Fix: Use 'gemini-3-flash-preview' for basic text tasks according to guidelines.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 

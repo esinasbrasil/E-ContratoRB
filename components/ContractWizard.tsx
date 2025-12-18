@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase, Info, Link as LinkIcon } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase, Info, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -13,7 +12,7 @@ interface ContractWizardProps {
   preSelectedSupplierId?: string;
   initialData?: ContractRequestData; // For editing
   onCancel: () => void;
-  onSave?: (data: ContractRequestData, supplierId: string, value: number) => void;
+  onSave?: (data: ContractRequestData, supplierId: string, value: number) => Promise<boolean>;
 }
 
 const steps = [
@@ -62,6 +61,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState<ContractRequestData>({
     supplierId: preSelectedSupplierId || '',
@@ -263,20 +263,38 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   };
 
   const handleFinish = async () => {
+      if (isSaving) return; // Prevent double clicks
+      
+      setIsSaving(true);
       const supplier = suppliers.find(s => s.id === formData.supplierId);
       
-      // Save if handler provided
-      if (onSave) {
-        onSave(formData, formData.supplierId, formData.value);
-      }
+      try {
+        let saveSuccessful = true;
+        
+        // Save if handler provided
+        if (onSave) {
+          const result = await onSave(formData, formData.supplierId, formData.value);
+          if (result === false) {
+             saveSuccessful = false;
+          }
+        }
 
-      // Generate PDF locally for immediate feedback
-      await mergeAndSavePDF(formData, supplier, settings);
-      
-      onCancel();
+        // Only proceed if save was successful or no onSave handler provided
+        if (saveSuccessful) {
+          // Generate PDF locally for immediate feedback
+          await mergeAndSavePDF(formData, supplier, settings);
+          onCancel();
+        }
+      } catch (error) {
+        console.error("Erro no processo de salvamento:", error);
+        alert("Ocorreu um erro ao finalizar o processo. Tente novamente.");
+      } finally {
+        setIsSaving(false);
+      }
   };
 
   const renderStepContent = () => {
+    // ... existing render logic ...
     const selectedSupplier = suppliers.find(s => s.id === formData.supplierId);
     const selectedProject = projects.find(p => p.id === formData.projectId);
 
@@ -319,7 +337,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                       value={formData.projectId}
                       onChange={(e) => handleProjectSelection(e.target.value)}
                     >
-                      <option value="">Selecione um projeto para importar dados...</option>
+                      <option value="">Selecione um projeto para importar dados (Opcional)</option>
                       {projects.map(p => (
                         <option key={p.id} value={p.id}>
                             {p.name} ({p.status === 'Active' ? 'Ativo' : 'Planejado'})
@@ -472,7 +490,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           </div>
         );
 
-      case 3: // Equipe (Prepostos + Labor)
+      case 3: // Equipe
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-bold text-gray-900 border-b pb-2">4. Equipe e Responsáveis</h3>
@@ -1201,9 +1219,9 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <button
           onClick={handleBack}
-          disabled={currentStep === 0}
+          disabled={currentStep === 0 || isSaving}
           className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-medium transition-colors
-            ${currentStep === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
+            ${currentStep === 0 || isSaving ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
         >
           <ChevronLeft size={18} className="mr-1" />
           Voltar
@@ -1216,14 +1234,26 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         {currentStep === steps.length - 1 ? (
              <button
              onClick={handleFinish}
-             className="flex items-center px-6 py-2.5 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
+             disabled={isSaving}
+             className={`flex items-center px-6 py-2.5 rounded-lg text-sm font-medium bg-primary-600 text-white shadow-lg transition-all transform
+                ${isSaving ? 'opacity-75 cursor-not-allowed' : 'hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5'}`}
            >
-             {initialData ? 'Atualizar e Gerar PDF' : 'Salvar e Gerar PDF'}
-             <FileText size={18} className="ml-2" />
+             {isSaving ? (
+               <>
+                 <Loader2 size={18} className="mr-2 animate-spin" />
+                 Salvando...
+               </>
+             ) : (
+               <>
+                 {initialData ? 'Atualizar e Gerar PDF' : 'Salvar e Gerar PDF'}
+                 <FileText size={18} className="ml-2" />
+               </>
+             )}
            </button>
         ) : (
             <button
             onClick={handleNext}
+            disabled={isSaving}
             className="flex items-center px-6 py-2.5 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 shadow-md transition-colors"
           >
             Próximo

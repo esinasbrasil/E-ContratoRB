@@ -12,15 +12,16 @@ import {
   Trash2, 
   X,
   Building,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 
 interface SupplierManagerProps {
   suppliers: Supplier[];
   serviceCategories: ServiceCategory[];
-  onAdd: (supplier: Supplier) => void;
-  onUpdate: (supplier: Supplier) => void;
-  onDelete: (id: string) => void;
+  onAdd: (supplier: Supplier) => Promise<void>;
+  onUpdate: (supplier: Supplier) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onOpenContractWizard: (id: string) => void;
   onRiskAnalysis: (supplier: Supplier) => void;
   analyzingRiskId: string | null;
@@ -43,6 +44,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState<Partial<Supplier>>({
     name: '',
@@ -64,6 +66,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
     });
     setEditingId(null);
     setIsFormOpen(false);
+    setIsSaving(false);
   };
 
   const handleEditClick = (supplier: Supplier) => {
@@ -72,28 +75,46 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
     setIsFormOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.cnpj) return;
-
-    const supplierData: Supplier = {
-      id: editingId || Date.now().toString(),
-      name: formData.name,
-      cnpj: formData.cnpj,
-      address: formData.address || '',
-      serviceType: formData.serviceType || 'Outros',
-      status: formData.status || SupplierStatus.PENDING,
-      rating: formData.rating || 0,
-      docs: formData.docs || []
-    };
-
-    if (editingId) {
-      onUpdate(supplierData);
-    } else {
-      onAdd(supplierData);
-    }
     
-    resetForm();
+    setIsSaving(true);
+
+    try {
+        const supplierData: Supplier = {
+          id: editingId || crypto.randomUUID(),
+          name: formData.name,
+          cnpj: formData.cnpj,
+          address: formData.address || '',
+          serviceType: formData.serviceType || 'Outros',
+          status: formData.status || SupplierStatus.PENDING,
+          rating: formData.rating || 0,
+          docs: formData.docs || []
+        };
+        
+        console.group("--- DEBUG: SALVANDO FORNECEDOR ---");
+        console.log("Dados do Fornecedor:", supplierData);
+        console.groupEnd();
+
+        if (editingId) {
+          await onUpdate(supplierData);
+        } else {
+          await onAdd(supplierData);
+        }
+        resetForm();
+    } catch (error) {
+        console.error("Erro ao salvar fornecedor:", error);
+        alert("Erro ao salvar. Verifique o console.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleDeleteClick = async (id: string) => {
+      if (confirm("Tem certeza que deseja excluir este fornecedor?")) {
+          await onDelete(id);
+      }
   };
 
   const filteredSuppliers = suppliers.filter(s => 
@@ -124,7 +145,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
               {editingId ? <Pencil size={20} className="mr-2 text-primary-600" /> : <Plus size={20} className="mr-2 text-primary-600" />}
               {editingId ? 'Editar Fornecedor' : 'Cadastrar Novo Fornecedor'}
             </span>
-            <button onClick={resetForm} className="text-xs text-red-500 hover:text-red-700 flex items-center">
+            <button onClick={resetForm} disabled={isSaving} className="text-xs text-red-500 hover:text-red-700 flex items-center">
               <X size={14} className="mr-1" /> Cancelar
             </button>
           </h2>
@@ -176,6 +197,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
                   {serviceCategories.map(cat => (
                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
+                  <option value="Outros">Outros</option>
                 </select>
               </div>
               <div>
@@ -208,14 +230,17 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
                <button
                  type="button"
                  onClick={resetForm}
+                 disabled={isSaving}
                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                >
                  Cancelar
                </button>
                <button
                  type="submit"
-                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
+                 disabled={isSaving}
+                 className="flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
                >
+                 {isSaving && <Loader2 size={16} className="mr-2 animate-spin" />}
                  {editingId ? 'Salvar Alterações' : 'Cadastrar'}
                </button>
             </div>
@@ -321,7 +346,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
                         </button>
 
                         <button 
-                          onClick={() => onDelete(s.id)}
+                          onClick={() => handleDeleteClick(s.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Remover"
                         >

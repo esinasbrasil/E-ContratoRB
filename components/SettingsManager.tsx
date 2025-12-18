@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { CompanySettings } from '../types';
-import { Save, Upload, Trash2, LayoutTemplate, FileText, AlertTriangle, Database } from 'lucide-react';
+import { Save, Upload, Trash2, LayoutTemplate, FileText, AlertTriangle, Database, Wand2 } from 'lucide-react';
 
 interface SettingsManagerProps {
   settings: CompanySettings;
   onSave: (settings: CompanySettings) => void;
   onReset: () => void;
+  onSeed: () => void;
 }
 
-const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave, onReset }) => {
+const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave, onReset, onSeed }) => {
   const [formData, setFormData] = useState<CompanySettings>(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,9 +42,13 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave, onR
   };
 
   const handleResetClick = () => {
-    if (window.confirm("ATENÇÃO: Esta ação apagará TODOS os registros (Fornecedores, Unidades, Projetos, Contratos e Tipos de Serviço). \n\nDeseja realmente continuar?")) {
+    if (window.confirm("ATENÇÃO: Esta ação apagará TODOS os registros armazenados neste navegador (Fornecedores, Unidades, Projetos, etc). \n\nDeseja realmente continuar?")) {
       onReset();
     }
+  };
+
+  const handleSeedClick = () => {
+      onSeed();
   };
 
   return (
@@ -139,29 +144,45 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave, onR
             </div>
           </form>
 
-          {/* Danger Zone */}
-          <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100">
-            <h2 className="text-lg font-semibold text-red-800 mb-2 flex items-center">
-              <AlertTriangle size={20} className="mr-2" />
-              Zona de Perigo
+          {/* Data Management Zone */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2 flex items-center">
+              <Database size={20} className="mr-2 text-primary-600" />
+              Gestão de Dados Locais
             </h2>
-            <p className="text-sm text-red-700 mb-4">
-              As ações abaixo são irreversíveis. Tenha certeza antes de prosseguir.
-            </p>
             
-            <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-red-100">
-               <div>
-                  <h4 className="text-sm font-medium text-gray-900">Limpar Todos os Cadastros</h4>
-                  <p className="text-xs text-gray-500 mt-1">Apaga fornecedores, unidades, projetos e contratos.</p>
-               </div>
-               <button
-                 type="button"
-                 onClick={handleResetClick}
-                 className="flex items-center px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-400 transition-all shadow-sm"
-               >
-                 <Database size={16} className="mr-2" />
-                 Resetar Base de Dados
-               </button>
+            <div className="space-y-4">
+                {/* Seed Data */}
+                <div className="flex items-center justify-between p-4 rounded-lg border border-blue-100 bg-blue-50">
+                   <div>
+                      <h4 className="text-sm font-bold text-blue-900">Gerar Dados de Teste</h4>
+                      <p className="text-xs text-blue-700 mt-1">Popula o armazenamento do navegador com dados fictícios para teste.</p>
+                   </div>
+                   <button
+                     type="button"
+                     onClick={handleSeedClick}
+                     className="flex items-center px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-all shadow-sm"
+                   >
+                     <Wand2 size={16} className="mr-2" />
+                     Gerar Dados
+                   </button>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="flex items-center justify-between p-4 rounded-lg border border-red-100 bg-red-50">
+                   <div>
+                      <h4 className="text-sm font-bold text-red-900 flex items-center"><AlertTriangle size={14} className="mr-1"/> Zona de Perigo</h4>
+                      <p className="text-xs text-red-700 mt-1">Apaga permanentemente todos os cadastros deste navegador.</p>
+                   </div>
+                   <button
+                     type="button"
+                     onClick={handleResetClick}
+                     className="flex items-center px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 hover:border-red-400 transition-all shadow-sm"
+                   >
+                     <Trash2 size={16} className="mr-2" />
+                     Resetar Tudo
+                   </button>
+                </div>
             </div>
           </div>
         </div>
