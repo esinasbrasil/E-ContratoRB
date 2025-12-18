@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { HashRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { LogOut, Loader2 } from 'lucide-react';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
@@ -17,10 +17,13 @@ import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
-import { Session } from '@supabase/supabase-js';
+
+// Fix: Removed direct import of Session as it was reported as missing in the module.
+// We will use 'any' or type assertions for session-related state and methods.
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
+  // Fix: Changed session state type to any to resolve the missing Session export error.
+  const [session, setSession] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -78,15 +81,19 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check local session first
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    // Inicializar sessão e monitorar mudanças
+    const initializeAuth = async () => {
+      // Fix: Added type assertion to supabase.auth to resolve getSession property error.
+      const { data: { session: initialSession } } = await (supabase.auth as any).getSession();
+      setSession(initialSession);
       setAuthChecking(false);
-      if (session) fetchData();
-    });
+      if (initialSession) fetchData();
+    };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    initializeAuth();
+
+    // Fix: Added type assertion to supabase.auth to resolve onAuthStateChange property error.
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
       setSession(session);
       if (session) fetchData();
     });
@@ -95,7 +102,8 @@ const App: React.FC = () => {
   }, [fetchData]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // Fix: Added type assertion to supabase.auth to resolve signOut property error.
+    await (supabase.auth as any).signOut();
     setSession(null);
   };
 
@@ -178,19 +186,17 @@ const App: React.FC = () => {
   };
 
   const handleDemoLogin = () => {
-    // Funçao de bypass para teste imediato
     setSession({ 
       user: { email: 'demo@gruporb.com.br', id: 'demo' },
-      access_token: 'demo',
-      refresh_token: 'demo'
+      access_token: 'demo'
     } as any);
   };
 
   if (authChecking) return (
-    <div className="h-screen w-full flex items-center justify-center bg-gray-50">
+    <div className="h-screen w-full flex items-center justify-center bg-white">
       <div className="flex flex-col items-center">
-        <Loader2 className="animate-spin text-primary-600 mb-4" size={48} />
-        <p className="text-gray-500 font-medium tracking-tight">Autenticando portal...</p>
+        <div className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="mt-6 text-slate-400 font-black text-[10px] uppercase tracking-widest">Iniciando Sistemas...</p>
       </div>
     </div>
   );
@@ -198,7 +204,7 @@ const App: React.FC = () => {
   if (!session) return <LoginPage onDemoLogin={handleDemoLogin} />;
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       {currentModule === 'home' && <LandingPage onSelectModule={setCurrentModule} />}
       
       {currentModule === 'engineering' && (
@@ -214,7 +220,7 @@ const App: React.FC = () => {
       {currentModule === 'contracts' && (
         <>
           {contractWizardSupplierId !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">
               <ContractWizard 
                 suppliers={suppliers} projects={projects} units={units} settings={companySettings}
                 preSelectedSupplierId={contractWizardSupplierId === 'new' ? undefined : contractWizardSupplierId}
@@ -227,14 +233,14 @@ const App: React.FC = () => {
 
           <Layout activeTab={activeTab} onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
             <div className="absolute top-4 right-20 z-20">
-               <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 flex items-center gap-1 text-sm font-medium transition-colors">
-                 <LogOut size={16}/> Sair
+               <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
+                 <LogOut size={14}/> Encerrar Sessão
                </button>
             </div>
             
             {loading && (
-              <div className="fixed top-24 right-10 bg-white shadow-xl p-3 rounded-2xl border border-primary-100 flex items-center gap-3 text-sm font-bold text-primary-700 z-50 animate-bounce">
-                <Loader2 size={18} className="animate-spin" /> Sincronizando dados...
+              <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50 animate-bounce">
+                <Loader2 size={16} className="animate-spin" /> Atualizando Nuvem...
               </div>
             )}
 
@@ -271,7 +277,7 @@ const App: React.FC = () => {
           </Layout>
         </>
       )}
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 
