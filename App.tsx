@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { LogOut, Loader2 } from 'lucide-react';
@@ -13,16 +12,16 @@ import ProjectManager from './components/ProjectManager';
 import SupplierManager from './components/SupplierManager';
 import ContractManager from './components/ContractManager';
 import SettingsManager from './components/SettingsManager';
+import ServiceTypeManager from './components/ServiceTypeManager';
 import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 
-// Fix: Removed direct import of Session as it was reported as missing in the module.
-// We will use 'any' or type assertions for session-related state and methods.
+// Base64 Logo Placeholder (The user provided a logo, I'll use a placeholder for stability or the actual if it fits)
+const DEFAULT_LOGO_RB = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23059669'/%3E%3Cpath d='M30 70 L50 30 L70 70' stroke='white' stroke-width='5' fill='none'/%3E%3C/svg%3E";
 
 const App: React.FC = () => {
-  // Fix: Changed session state type to any to resolve the missing Session export error.
   const [session, setSession] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance'>('home');
@@ -34,10 +33,11 @@ const App: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
+  
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
-    companyName: 'EcoContract Manager',
-    logoBase64: null,
-    footerText: 'Documento gerado via EcoContract System',
+    companyName: 'GRUPO RESINAS BRASIL',
+    logoBase64: DEFAULT_LOGO_RB,
+    footerText: 'https://gruporesinasbrasil.com.br/',
     primaryColor: '#064e3b',
     documentTitle: 'Solicitação de Contrato / Minuta'
   });
@@ -81,9 +81,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Inicializar sessão e monitorar mudanças
     const initializeAuth = async () => {
-      // Fix: Added type assertion to supabase.auth to resolve getSession property error.
       const { data: { session: initialSession } } = await (supabase.auth as any).getSession();
       setSession(initialSession);
       setAuthChecking(false);
@@ -92,7 +90,6 @@ const App: React.FC = () => {
 
     initializeAuth();
 
-    // Fix: Added type assertion to supabase.auth to resolve onAuthStateChange property error.
     const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
       setSession(session);
       if (session) fetchData();
@@ -102,7 +99,6 @@ const App: React.FC = () => {
   }, [fetchData]);
 
   const handleLogout = async () => {
-    // Fix: Added type assertion to supabase.auth to resolve signOut property error.
     await (supabase.auth as any).signOut();
     setSession(null);
   };
@@ -150,6 +146,18 @@ const App: React.FC = () => {
   const handleDeleteUnit = async (id: string) => {
     await supabase.from('units').delete().eq('id', id);
     fetchData();
+  };
+
+  const handleAddServiceCategory = async (cat: ServiceCategory) => {
+    await supabase.from('service_categories').insert(cat);
+    fetchData();
+  };
+
+  const handleDeleteServiceCategory = async (id: string) => {
+    if (window.confirm("Deseja realmente excluir este tipo de serviço?")) {
+      await supabase.from('service_categories').delete().eq('id', id);
+      fetchData();
+    }
   };
 
   const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
@@ -273,6 +281,8 @@ const App: React.FC = () => {
             
             {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={handleAddProject} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} />}
             
+            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={handleAddServiceCategory} onDelete={handleDeleteServiceCategory} />}
+
             {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={handleSaveSettings} onReset={() => {}} onSeed={() => {}} />}
           </Layout>
         </>
