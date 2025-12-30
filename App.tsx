@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter } from 'react-router-dom';
 import { LogOut, Loader2 } from 'lucide-react';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
@@ -17,9 +17,9 @@ import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { storageService } from './services/storageService';
 
-// Base64 Logo Placeholder (The user provided a logo, I'll use a placeholder for stability or the actual if it fits)
-const DEFAULT_LOGO_RB = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23059669'/%3E%3Cpath d='M30 70 L50 30 L70 70' stroke='white' stroke-width='5' fill='none'/%3E%3C/svg%3E";
+const LOGO_RB_FIXO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABNmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDAgNzkuMTYwNDUxLCAyMDE3LzA1LzA2LTAxOjA4OjIxICAgICAgICAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIi8+CiA8L3JkZjpSREY+CjwveDp4bXB0YT4KPD94cGFja2V0IGVuZD0idyI/PlS999MAAAAZSURBVHgB7cEBDQAAAMKg909tDwcUAAAAAIB3A08AAAF7v9SRAAAAAElFTkSuQmCC";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -36,7 +36,7 @@ const App: React.FC = () => {
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     companyName: 'GRUPO RESINAS BRASIL',
-    logoBase64: DEFAULT_LOGO_RB,
+    logoBase64: LOGO_RB_FIXO,
     footerText: 'https://gruporesinasbrasil.com.br/',
     primaryColor: '#064e3b',
     documentTitle: 'Solicitação de Contrato / Minuta'
@@ -47,139 +47,152 @@ const App: React.FC = () => {
   const [analyzingRisk, setAnalyzingRisk] = useState<string | null>(null);
   const [riskReport, setRiskReport] = useState<{ id: string, text: string } | null>(null);
 
+  const isDemo = session?.user?.id === 'demo';
+
   const fetchData = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
     setLoading(true);
     try {
-      const [
-        { data: s }, 
-        { data: p }, 
-        { data: u }, 
-        { data: cat }, 
-        { data: ctr },
-        { data: settingsData }
-      ] = await Promise.all([
-        supabase.from('suppliers').select('*').order('name'),
-        supabase.from('projects').select('*').order('name'),
-        supabase.from('units').select('*').order('name'),
-        supabase.from('service_categories').select('*').order('name'),
-        supabase.from('contracts').select('*').order('createdAt', { ascending: false }),
-        supabase.from('company_settings').select('*').single()
-      ]);
+      if (isDemo) {
+        // Carregar do LocalStorage no modo Demo
+        setSuppliers(storageService.getSuppliers());
+        setProjects(storageService.getProjects());
+        setUnits(storageService.getUnits());
+        setServiceCategories(storageService.getServices());
+        setContracts(storageService.getContracts());
+        const settings = storageService.getSettings();
+        if (settings) setCompanySettings(settings);
+      } else if (isSupabaseConfigured) {
+        // Carregar do Supabase
+        const [
+          { data: s }, 
+          { data: p }, 
+          { data: u }, 
+          { data: cat }, 
+          { data: ctr },
+          { data: settingsData }
+        ] = await Promise.all([
+          supabase.from('suppliers').select('*').order('name'),
+          supabase.from('projects').select('*').order('name'),
+          supabase.from('units').select('*').order('name'),
+          supabase.from('service_categories').select('*').order('name'),
+          supabase.from('contracts').select('*').order('createdAt', { ascending: false }),
+          supabase.from('company_settings').select('*').single()
+        ]);
 
-      if (s) setSuppliers(s);
-      if (p) setProjects(p);
-      if (u) setUnits(u);
-      if (cat) setServiceCategories(cat);
-      if (ctr) setContracts(ctr);
-      if (settingsData) setCompanySettings(settingsData);
+        if (s) setSuppliers(s);
+        if (p) setProjects(p);
+        if (u) setUnits(u);
+        if (cat) setServiceCategories(cat);
+        if (ctr) setContracts(ctr);
+        if (settingsData) setCompanySettings(settingsData);
+      }
     } catch (error) {
       console.error("Erro ao sincronizar dados:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     const initializeAuth = async () => {
       const { data: { session: initialSession } } = await (supabase.auth as any).getSession();
       setSession(initialSession);
       setAuthChecking(false);
-      if (initialSession) fetchData();
     };
-
     initializeAuth();
 
     const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
       setSession(session);
-      if (session) fetchData();
     });
-
     return () => subscription.unsubscribe();
-  }, [fetchData]);
+  }, []);
+
+  useEffect(() => {
+    if (session) fetchData();
+  }, [session, fetchData]);
 
   const handleLogout = async () => {
     await (supabase.auth as any).signOut();
     setSession(null);
   };
 
-  const handleAddSupplier = async (supplier: Supplier) => {
-    await supabase.from('suppliers').insert(supplier);
-    fetchData();
-  };
-
-  const handleUpdateSupplier = async (supplier: Supplier) => {
-    await supabase.from('suppliers').update(supplier).eq('id', supplier.id);
-    fetchData();
-  };
-
-  const handleDeleteSupplier = async (id: string) => {
-    await supabase.from('suppliers').delete().eq('id', id);
-    fetchData();
-  };
-
-  const handleAddProject = async (project: Project) => {
-    await supabase.from('projects').insert(project);
-    fetchData();
-  };
-
-  const handleUpdateProject = async (project: Project) => {
-    await supabase.from('projects').update(project).eq('id', project.id);
-    fetchData();
-  };
-
-  const handleDeleteProject = async (id: string) => {
-    await supabase.from('projects').delete().eq('id', id);
-    fetchData();
-  };
-
-  const handleAddUnit = async (unit: Unit) => {
-    await supabase.from('units').insert(unit);
-    fetchData();
-  };
-
-  const handleUpdateUnit = async (unit: Unit) => {
-    await supabase.from('units').update(unit).eq('id', unit.id);
-    fetchData();
-  };
-
-  const handleDeleteUnit = async (id: string) => {
-    await supabase.from('units').delete().eq('id', id);
-    fetchData();
-  };
-
-  const handleAddServiceCategory = async (cat: ServiceCategory) => {
-    await supabase.from('service_categories').insert(cat);
-    fetchData();
-  };
-
-  const handleDeleteServiceCategory = async (id: string) => {
-    if (window.confirm("Deseja realmente excluir este tipo de serviço?")) {
-      await supabase.from('service_categories').delete().eq('id', id);
-      fetchData();
+  // --- Handlers Genéricos com Tratamento de Erro ---
+  
+  const saveAction = async (table: string, data: any, storageMethod: (item: any) => void) => {
+    setLoading(true);
+    try {
+      if (isDemo) {
+        storageMethod(data);
+      } else {
+        const { error } = await supabase.from(table).upsert(data);
+        if (error) {
+          console.error(`Erro no Supabase (${table}):`, error);
+          alert(`Erro ao salvar no banco de dados: ${error.message}. Verifique as políticas de RLS.`);
+          return false;
+        }
+      }
+      await fetchData();
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
+
+  const deleteAction = async (table: string, id: string, storageMethod: (id: string) => void) => {
+    if (!window.confirm("Deseja realmente excluir este registro?")) return;
+    setLoading(true);
+    try {
+      if (isDemo) {
+        storageMethod(id);
+      } else {
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) throw error;
+      }
+      await fetchData();
+    } catch (err: any) {
+      alert(`Erro ao excluir: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Suppliers ---
+  const handleAddSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
+  const handleUpdateSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
+  const handleDeleteSupplier = (id: string) => deleteAction('suppliers', id, storageService.deleteSupplier);
+
+  // --- Projects ---
+  const handleAddProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
+  const handleUpdateProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
+  const handleDeleteProject = (id: string) => deleteAction('projects', id, storageService.deleteProject);
+
+  // --- Units ---
+  const handleAddUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
+  const handleUpdateUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
+  const handleDeleteUnit = (id: string) => deleteAction('units', id, storageService.deleteUnit);
+
+  // --- Services ---
+  const handleAddServiceCategory = (c: ServiceCategory) => saveAction('service_categories', c, storageService.saveService);
+  const handleDeleteServiceCategory = (id: string) => deleteAction('service_categories', id, storageService.deleteService);
 
   const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
-     const newContract: any = editingContract ? {
-       ...editingContract, value, details: data, supplierId, projectId: data.projectId
-     } : {
-       id: crypto.randomUUID(), projectId: data.projectId, supplierId, value, 
-       createdAt: new Date().toISOString(), status: 'Draft', details: data
+     const contractId = editingContract?.id || crypto.randomUUID();
+     const newContract: any = {
+       id: contractId, 
+       projectId: data.projectId, 
+       supplierId, 
+       value, 
+       createdAt: editingContract?.createdAt || new Date().toISOString(), 
+       status: 'Draft', 
+       details: data
      };
-
-     const { error } = await supabase.from('contracts').upsert(newContract);
-     if (error) return false;
-     fetchData();
-     return true;
+     return await saveAction('contracts', newContract, storageService.saveContract);
   };
 
-  const handleDeleteContract = async (id: string) => {
-    if (window.confirm("Excluir esta solicitação?")) {
-      await supabase.from('contracts').delete().eq('id', id);
-      fetchData();
-    }
-  };
+  const handleDeleteContract = (id: string) => deleteAction('contracts', id, storageService.deleteContract);
 
   const handleRiskAnalysis = async (supplier: Supplier) => {
     setAnalyzingRisk(supplier.id);
@@ -188,9 +201,10 @@ const App: React.FC = () => {
     setAnalyzingRisk(null);
   };
 
-  const handleSaveSettings = async (s: CompanySettings) => {
+  const handleSaveSettings = (s: CompanySettings) => {
     setCompanySettings(s);
-    await supabase.from('company_settings').upsert({ id: 1, ...s });
+    if (isDemo) storageService.saveSettings(s);
+    else supabase.from('company_settings').upsert({ id: 1, ...s });
   };
 
   const handleDemoLogin = () => {
@@ -204,7 +218,7 @@ const App: React.FC = () => {
     <div className="h-screen w-full flex items-center justify-center bg-white">
       <div className="flex flex-col items-center">
         <div className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
-        <p className="mt-6 text-slate-400 font-black text-[10px] uppercase tracking-widest">Iniciando Sistemas...</p>
+        <p className="mt-6 text-slate-400 font-black text-[10px] uppercase tracking-widest">Sincronizando...</p>
       </div>
     </div>
   );
@@ -212,7 +226,7 @@ const App: React.FC = () => {
   if (!session) return <LoginPage onDemoLogin={handleDemoLogin} />;
 
   return (
-    <BrowserRouter>
+    <>
       {currentModule === 'home' && <LandingPage onSelectModule={setCurrentModule} />}
       
       {currentModule === 'engineering' && (
@@ -242,13 +256,13 @@ const App: React.FC = () => {
           <Layout activeTab={activeTab} onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
             <div className="absolute top-4 right-20 z-20">
                <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
-                 <LogOut size={14}/> Encerrar Sessão
+                 <LogOut size={14}/> Sair
                </button>
             </div>
             
             {loading && (
-              <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50 animate-bounce">
-                <Loader2 size={16} className="animate-spin" /> Atualizando Nuvem...
+              <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
+                <Loader2 size={16} className="animate-spin" /> {isDemo ? 'Sincronizando Local...' : 'Sincronizando Nuvem...'}
               </div>
             )}
 
@@ -257,37 +271,59 @@ const App: React.FC = () => {
                 activeProjects: projects.filter(p => p.status === 'Active').length,
                 contractsGenerated: contracts.length,
                 pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length
-            }} suppliersData={suppliers} />}
+            }} suppliersData={suppliers} projectsData={projects} />}
 
             {activeTab === 'suppliers' && (
               <SupplierManager
                  suppliers={suppliers} serviceCategories={serviceCategories}
                  onAdd={handleAddSupplier} onUpdate={handleUpdateSupplier} onDelete={handleDeleteSupplier}
-                 onOpenContractWizard={setContractWizardSupplierId} onRiskAnalysis={handleRiskAnalysis}
-                 analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
+                 onOpenContractWizard={setContractWizardSupplierId} 
+                 onRiskAnalysis={handleRiskAnalysis}
+                 analyzingRiskId={analyzingRisk}
+                 riskReport={riskReport}
+                 onCloseRiskReport={() => setRiskReport(null)}
+              />
+            )}
+
+            {activeTab === 'projects' && (
+              <ProjectManager 
+                projects={projects} units={units} 
+                onAdd={handleAddProject} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} 
+              />
+            )}
+
+            {activeTab === 'units' && (
+              <UnitManager 
+                units={units} onAdd={handleAddUnit} onUpdate={handleUpdateUnit} onDelete={handleDeleteUnit} 
               />
             )}
 
             {activeTab === 'contracts' && (
-               <ContractManager 
-                  contracts={contracts} suppliers={suppliers} settings={companySettings} 
-                  onOpenWizard={() => setContractWizardSupplierId('new')}
-                  onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }}
-                  onDeleteContract={handleDeleteContract}
-               />
+              <ContractManager 
+                contracts={contracts} suppliers={suppliers} settings={companySettings}
+                onOpenWizard={() => setContractWizardSupplierId('new')}
+                onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }}
+                onDeleteContract={handleDeleteContract}
+              />
             )}
 
-            {activeTab === 'units' && <UnitManager units={units} onAdd={handleAddUnit} onUpdate={handleUpdateUnit} onDelete={handleDeleteUnit} />}
-            
-            {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={handleAddProject} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} />}
-            
-            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={handleAddServiceCategory} onDelete={handleDeleteServiceCategory} />}
+            {activeTab === 'types' && (
+              <ServiceTypeManager 
+                services={serviceCategories} onAdd={handleAddServiceCategory} onDelete={handleDeleteServiceCategory} 
+              />
+            )}
 
-            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={handleSaveSettings} onReset={() => {}} onSeed={() => {}} />}
+            {activeTab === 'settings' && (
+              <SettingsManager 
+                settings={companySettings} onSave={handleSaveSettings} 
+                onReset={() => { storageService.resetDatabase(); fetchData(); }} 
+                onSeed={() => {}} 
+              />
+            )}
           </Layout>
         </>
       )}
-    </BrowserRouter>
+    </>
   );
 };
 
