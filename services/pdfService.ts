@@ -14,7 +14,7 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const contentWidth = pageWidth - (margin * 2);
-  const primaryColor: [number, number, number] = [6, 78, 59];
+  const primaryColor: [number, number, number] = [6, 78, 59]; // Verde Escuro do Grupo RB
   
   const companyName = settings?.companyName || "GRUPO RESINAS BRASIL";
   const documentTitle = settings?.documentTitle || "Solicitação de Contrato / Minuta";
@@ -46,18 +46,18 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text("https://gruporesinasbrasil.com.br/", margin, pageHeight - 10);
+    doc.text(settings?.footerText || "https://gruporesinasbrasil.com.br/", margin, pageHeight - 10);
     doc.text(`Página ${pageNum} de 3`, pageWidth - margin, pageHeight - 10, { align: "right" });
   };
 
   const printSection = (title: string) => {
-    if (currentY > 265) {
+    if (currentY > 260) {
       drawFooter();
       doc.addPage();
       pageNum++;
       drawHeader();
     }
-    doc.setFillColor(241, 245, 249); 
+    doc.setFillColor(241, 245, 249); // Cinza claro como no modelo
     doc.rect(margin, currentY, contentWidth, 8, 'F');
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
@@ -83,7 +83,7 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
 
   drawHeader();
 
-  // 1. DADOS DO FORNECEDOR
+  // --- PAGINA 1 ---
   printSection("1. DADOS DO FORNECEDOR");
   const halfWidth = contentWidth / 2;
   const col2 = margin + halfWidth;
@@ -108,16 +108,14 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
   doc.text(data.serviceType || supplier?.serviceType || "-", col2);
   currentY += 8;
 
-  printField("FILIAIS ENVOLVIDAS", data.supplierBranches);
+  printField("FILIAIS ENVOLVIDAS", data.supplierBranches || "Não aplicável");
 
-  // 2. DOCUMENTAÇÃO E COMPLIANCE
   printSection("2. DOCUMENTAÇÃO E COMPLIANCE");
   doc.setFontSize(9);
   doc.text(`[ ${data.docSocialContract ? 'X' : ' '} ] Contrato Social`, margin, currentY);
   doc.text(`[ ${data.docSerasa ? 'X' : ' '} ] Pesquisas Serasa/Certidões`, margin + 60, currentY);
   currentY += 12;
 
-  // 3. ESCOPO TÉCNICO
   printSection("3. ESCOPO TÉCNICO");
   printField("OBJETO DO FORNECIMENTO", data.objectDescription);
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100);
@@ -128,7 +126,6 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
   doc.text(scopeLines, margin, currentY);
   currentY += (scopeLines.length * 4.2) + 10;
 
-  // 4. EQUIPE E RESPONSÁVEIS
   printSection("4. EQUIPE E RESPONSÁVEIS");
   printField("RESPONSÁVEL TÉCNICO (ART/RRT)", data.technicalResponsible);
   
@@ -149,28 +146,26 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     currentY += 15;
   });
 
+  // --- PAGINA 2 ---
   drawFooter();
   doc.addPage(); pageNum++;
   drawHeader();
 
-  // 5. RECURSOS E MATERIAIS
   printSection("5. RECURSOS E MATERIAIS");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100);
   doc.text("LISTA DE MATERIAIS / RECURSOS", margin, currentY);
   currentY += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0);
-  const resourcesList = [];
-  if (data.hasMaterials) resourcesList.push(data.materialsList);
-  if (data.hasRental) resourcesList.push(data.rentalList);
-  if (data.hasComodato) resourcesList.push(data.comodatoList);
-  
-  const resourcesText = resourcesList.join("\n") || "Não aplicável";
-  const resourcesLines = doc.splitTextToSize(resourcesText, contentWidth);
-  doc.text(resourcesLines, margin, currentY);
-  currentY += (resourcesLines.length * 4.2) + 10;
+  const rList = [];
+  if (data.hasMaterials) rList.push(`• Materiais: ${data.materialsList}`);
+  if (data.hasRental) rList.push(`• Locação/Equip: ${data.rentalList}`);
+  if (data.hasComodato) rList.push(`• Comodato: ${data.comodatoList}`);
+  const rText = rList.join("\n") || "Não aplicável";
+  const rLines = doc.splitTextToSize(rText, contentWidth);
+  doc.text(rLines, margin, currentY);
+  currentY += (rLines.length * 4.2) + 10;
 
-  // 6. CONDIÇÕES COMERCIAIS
-  printSection("6. CONDIÇÕES COMERCIALS");
+  printSection("6. CONDIÇÕES COMERCIAIS");
   doc.setDrawColor(6, 78, 59);
   doc.setFillColor(240, 253, 244);
   doc.roundedRect(margin, currentY, contentWidth, 20, 2, 2, 'FD');
@@ -190,9 +185,9 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
   doc.text("CRONOGRAMA DE FATURAMENTO", margin, currentY);
   currentY += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-  const schedLines = doc.splitTextToSize(data.scheduleSteps || "-", contentWidth);
-  doc.text(schedLines, margin, currentY);
-  currentY += (schedLines.length * 4.2) + 8;
+  const sLines = doc.splitTextToSize(data.scheduleSteps || "-", contentWidth);
+  doc.text(sLines, margin, currentY);
+  currentY += (sLines.length * 4.2) + 8;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100);
   doc.text("CAP / LIMITE", margin, currentY);
@@ -205,19 +200,17 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
 
   printField("GARANTIAS", data.warranties);
 
-  // 7. ANÁLISE DE RISCOS
   printSection("7. ANÁLISE DE RISCOS");
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(220, 38, 38);
   doc.text("Pontos de Atenção / Riscos:", margin, currentY);
   currentY += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0);
-  const riskLines = doc.splitTextToSize(data.urgenciesRisks || "Nenhum risco crítico identificado.", contentWidth);
-  doc.text(riskLines, margin, currentY);
-  currentY += (riskLines.length * 4.2) + 10;
+  const riskL = doc.splitTextToSize(data.urgenciesRisks || "Nenhum risco crítico identificado.", contentWidth);
+  doc.text(riskL, margin, currentY);
+  currentY += (riskL.length * 4.2) + 10;
 
-  // 7.1 ASPECTOS JURÍDICOS E DE RISCO
   printSection("7.1. ASPECTOS JURÍDICOS E DE RISCO");
-  const legalItems = [
+  const leg1 = [
     { id: 'aspectStandardDraft', label: 'Minuta padrão' },
     { id: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
     { id: 'aspectConfidentiality', label: 'Cláusulas de confidencialidade' },
@@ -225,31 +218,31 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     { id: 'aspectWarranties', label: 'Garantias exigidas (performance, entrega)' }
   ];
   doc.setFontSize(9);
-  legalItems.forEach(item => {
-    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin, currentY);
+  leg1.forEach(it => {
+    doc.text(`[ ${(data as any)[it.id] ? 'X' : ' '} ] ${it.label}`, margin, currentY);
     currentY += 6;
   });
 
+  // --- PAGINA 3 ---
   drawFooter();
   doc.addPage(); pageNum++;
   drawHeader();
 
-  const legalItems2 = [
+  const leg2 = [
     { id: 'aspectWarrantyStart', label: 'Contagem da garantia (entrega/execução)' },
     { id: 'aspectPostTermination', label: 'Obrigações pós-encerramento (sigilo)' },
     { id: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
     { id: 'aspectAdvancePayment', label: 'Cláusula de antecipação de pagamento' },
     { id: 'aspectNonStandard', label: 'Condições não padrão (Outros)' }
   ];
-  legalItems2.forEach(item => {
-    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin, currentY);
+  leg2.forEach(it => {
+    doc.text(`[ ${(data as any)[it.id] ? 'X' : ' '} ] ${it.label}`, margin, currentY);
     currentY += 6;
   });
-  currentY += 6;
+  currentY += 8;
 
-  // 7.2 CHECKLIST DE DOCUMENTOS OBRIGATÓRIOS
   printSection("7.2. CHECKLIST DE DOCUMENTOS OBRIGATÓRIOS");
-  const checklistItems = [
+  const cList = [
     { id: 'docCheckCommercial', label: 'Acordo Comercial' },
     { id: 'docCheckPO', label: 'Pedido de Compra (PO)' },
     { id: 'docCheckCompliance', label: 'Termo de Conformidade' },
@@ -260,16 +253,15 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     { id: 'docCheckSafetyDocs', label: 'Documentos de segurança do trabalho' },
     { id: 'docCheckTrainingCertificates', label: 'Certificados de treinamentos' }
   ];
-  checklistItems.forEach(item => {
-    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin, currentY);
+  cList.forEach(it => {
+    doc.text(`[ ${(data as any)[it.id] ? 'X' : ' '} ] ${it.label}`, margin, currentY);
     currentY += 6;
   });
-  currentY += 6;
+  currentY += 8;
 
-  // 8. DOCUMENTOS ANEXOS
   printSection("8. DOCUMENTOS ANEXOS");
   doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("Documentos Contratuais:", margin, currentY);
+  doc.text("Documentos Contratuais e Cadastrais:", margin, currentY);
   currentY += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8);
   if (data.attachments.length === 0) {
@@ -282,7 +274,7 @@ const createChecklistPDFBytes = (data: ContractRequestData, supplier?: Supplier,
     });
   }
 
-  // ASSINATURAS
+  // Assinaturas
   currentY = 240;
   doc.setDrawColor(200);
   doc.line(margin, currentY, margin + 80, currentY);
@@ -321,9 +313,10 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
-    link.download = `Checklist_Contrato_${supplier?.name.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
+    link.download = `Checklist_Contrato_${supplier?.name.replace(/[^a-zA-Z0-9]/g, '') || 'Documento'}.pdf`;
     link.click();
   } catch (error) {
     console.error("Error generating PDF:", error);
+    alert("Ocorreu um erro ao gerar o arquivo PDF. Verifique se os anexos são válidos.");
   }
 };

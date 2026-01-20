@@ -50,7 +50,7 @@ export interface Project {
   name: string;
   unitId: string;
   costCenter: string;
-  orderNumber?: string; // Novo campo: Número do Pedido
+  orderNumber?: string;
   description: string;
   estimatedValue: number;
   startDate: string;
@@ -81,7 +81,7 @@ export interface ContractAttachment {
 export interface ContractRequestData {
   supplierId: string;
   projectId: string;
-  orderNumber?: string; // Novo campo: Número do Pedido
+  orderNumber?: string;
   
   supplierBranches: string;
   serviceLocation: string;
@@ -102,8 +102,8 @@ export interface ContractRequestData {
   equipmentList: string;
   hasRental: boolean;
   rentalList: string;
-  hasComodato: boolean; // Novo campo
-  comodatoList: string; // Novo campo
+  hasComodato: boolean;
+  comodatoList: string;
   hasLabor: boolean;
   laborDetails: LaborDetail[];
   
