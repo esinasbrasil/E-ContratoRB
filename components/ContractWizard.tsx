@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, AlertCircle, Wand2, Plus, Trash2, Calendar, DollarSign, Upload, Paperclip, Users, Scale, FileCheck, HardHat, Building, Briefcase, Info, Link as LinkIcon, Loader2, Tag } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -23,30 +23,10 @@ const steps = [
   'Equipe',
   'Recursos',
   'Financeiro',
-  'Aspectos Jurídicos',
+  'Análise de Risco',
   'Doc. Obrigatórios',
   'Anexos',
-  'Segurança & RH',
   'Revisão'
-];
-
-const companyDocs = [
-  'PGR – Programa de Gerenciamento de Riscos',
-  'PCMSO – Programa de Controle Médico',
-  'ALVARÁ DE FUNCIONAMENTO',
-  'CARTÃO CNPJ',
-  'CND - Certidão negativa de débitos federais',
-  'CNDT - Certidão negativa de débitos trabalhistas',
-  'CRF - Certificado de Regularidade do FGTS',
-  'Lista de funcionários prestadores'
-];
-
-const employeeDocs = [
-  'ASO – Atestado de Saúde Ocupacional',
-  'Ficha de EPI',
-  'Registro dos colaboradores',
-  'OS – Ordem de Serviço de Segurança',
-  'Qualificação/Treinamento (NR10, NR33, NR35)'
 ];
 
 const ContractWizard: React.FC<ContractWizardProps> = ({ 
@@ -70,25 +50,22 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     supplierBranches: 'Não aplicável',
     serviceLocation: '',
     serviceType: '',
-    
     docSocialContract: false,
     docSerasa: false,
-    
     objectDescription: '',
     scopeDescription: '',
-    
     prepostos: [{ name: '', role: '', email: '' }],
     technicalResponsible: '',
-    
     hasMaterials: false,
     materialsList: '',
     hasEquipment: false,
     equipmentList: '',
     hasRental: false,
     rentalList: '',
+    hasComodato: false,
+    comodatoList: '',
     hasLabor: false,
     laborDetails: [],
-    
     startDate: '',
     endDate: '',
     scheduleSteps: '',
@@ -96,10 +73,8 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     paymentTerms: '',
     capLimit: 'Não aplicável',
     correctionIndex: 'Não aplicável',
-    warranties: '',
-    
+    warranties: 'Não aplicável',
     urgenciesRisks: '',
-
     aspectStandardDraft: false,
     aspectNonStandardDraft: false,
     aspectConfidentiality: false,
@@ -110,7 +85,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     aspectPublicAgencies: false,
     aspectAdvancePayment: false,
     aspectNonStandard: false,
-
     docCheckCommercial: false,
     docCheckPO: false,
     docCheckCompliance: false,
@@ -120,116 +94,45 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     docCheckFiscalValidation: false,
     docCheckSafetyDocs: false,
     docCheckTrainingCertificates: false,
-    
     attachments: []
   });
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    }
+    if (initialData) setFormData(initialData);
   }, [initialData]);
 
-  useEffect(() => {
-    if (formData.supplierId && !initialData) {
-      const supplier = suppliers.find(s => s.id === formData.supplierId);
-      if (supplier) {
-        setFormData(prev => ({
-          ...prev,
-          serviceType: supplier.serviceType,
-        }));
-      }
-    }
-  }, [formData.supplierId, suppliers, initialData]);
-
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
-  };
-
-  const handleChange = (field: keyof ContractRequestData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const handleNext = () => currentStep < steps.length - 1 && setCurrentStep(currentStep + 1);
+  const handleBack = () => currentStep > 0 && setCurrentStep(currentStep - 1);
+  const handleChange = (field: keyof ContractRequestData, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const handleProjectSelection = (projectId: string) => {
-    handleChange('projectId', projectId);
-    
-    if (!projectId) return;
-
     const project = projects.find(p => p.id === projectId);
     if (project) {
-        setFormData(prev => ({
-            ...prev,
-            projectId: projectId,
-            orderNumber: prev.orderNumber || project.orderNumber || '',
-            objectDescription: prev.objectDescription || project.name,
-            scopeDescription: prev.scopeDescription || project.description,
-            startDate: prev.startDate || project.startDate,
-            endDate: prev.endDate || project.endDate,
-            value: prev.value || project.estimatedValue,
-            serviceLocation: units.find(u => u.id === project.unitId)?.name || prev.serviceLocation
-        }));
+      setFormData(prev => ({
+        ...prev,
+        projectId,
+        orderNumber: project.orderNumber || prev.orderNumber || '',
+        objectDescription: project.name,
+        scopeDescription: project.description,
+        startDate: project.startDate,
+        endDate: project.endDate,
+        value: project.estimatedValue,
+        serviceLocation: units.find(u => u.id === project.unitId)?.name || prev.serviceLocation
+      }));
+    } else {
+      handleChange('projectId', projectId);
     }
-  };
-
-  const handleAiDraft = async (field: keyof ContractRequestData, contextStep: string) => {
-    setAiGenerating(true);
-    const clause = await generateContractClause(contextStep, formData);
-    handleChange(field, clause);
-    setAiGenerating(false);
-  };
-
-  const updatePreposto = (index: number, field: keyof Preposto, value: string) => {
-    const newPrepostos = [...formData.prepostos];
-    newPrepostos[index] = { ...newPrepostos[index], [field]: value };
-    handleChange('prepostos', newPrepostos);
-  };
-
-  const addPreposto = () => {
-    handleChange('prepostos', [...formData.prepostos, { name: '', role: '', email: '' }]);
-  };
-
-  const removePreposto = (index: number) => {
-    const newPrepostos = formData.prepostos.filter((_, i) => i !== index);
-    handleChange('prepostos', newPrepostos);
-  };
-
-  const addLaborDetail = () => {
-    handleChange('laborDetails', [...formData.laborDetails, { role: '', quantity: 1 }]);
-  };
-
-  const updateLaborDetail = (index: number, field: keyof LaborDetail, value: any) => {
-    const newLabor = [...formData.laborDetails];
-    newLabor[index] = { ...newLabor[index], [field]: value };
-    handleChange('laborDetails', newLabor);
-  };
-
-  const removeLaborDetail = (index: number) => {
-    const newLabor = formData.laborDetails.filter((_, i) => i !== index);
-    handleChange('laborDetails', newLabor);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== 'application/pdf') {
-        alert("Por favor, anexe apenas arquivos PDF.");
-        return;
-      }
-      
+      if (file.type !== 'application/pdf') { alert("Apenas arquivos PDF são permitidos."); return; }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
         const existingIndex = formData.attachments.findIndex(a => a.type === type);
-        const newAttachment: ContractAttachment = {
-          name: file.name,
-          type: type,
-          fileData: base64
-        };
-
+        const newAttachment = { name: file.name, type, fileData: base64 };
         if (existingIndex >= 0) {
            const newAttachments = [...formData.attachments];
            newAttachments[existingIndex] = newAttachment;
@@ -242,356 +145,352 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
-  const removeAttachment = (index: number) => {
-    const newAttachments = formData.attachments.filter((_, i) => i !== index);
-    handleChange('attachments', newAttachments);
-  };
-
-  const getAttachmentStatus = (type: string) => {
-    return formData.attachments.some(a => a.type === type);
-  };
-
   const handleFinish = async () => {
-      if (isSaving) return;
-      setIsSaving(true);
+    if (!formData.supplierId) {
+      alert("Por favor, selecione um fornecedor no Passo 1.");
+      setCurrentStep(0);
+      return;
+    }
+    setIsSaving(true);
+    try {
       const supplier = suppliers.find(s => s.id === formData.supplierId);
-      try {
-        let saveSuccessful = true;
-        if (onSave) {
-          const result = await onSave(formData, formData.supplierId, formData.value);
-          if (result === false) saveSuccessful = false;
-        }
-        if (saveSuccessful) {
-          await mergeAndSavePDF(formData, supplier, settings);
-          onCancel();
-        }
-      } catch (error) {
-        console.error("Erro no processo de salvamento:", error);
-        alert("Ocorreu um erro ao finalizar o processo. Tente novamente.");
-      } finally {
-        setIsSaving(false);
+      let success = true;
+      if (onSave) success = await onSave(formData, formData.supplierId, formData.value);
+      if (success) {
+        await mergeAndSavePDF(formData, supplier, settings);
+        onCancel();
       }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao salvar solicitação. Tente novamente.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStepContent = () => {
-    const selectedSupplier = suppliers.find(s => s.id === formData.supplierId);
-    const selectedProject = projects.find(p => p.id === formData.projectId);
+    const s = suppliers.find(su => su.id === formData.supplierId);
+    const p = projects.find(pr => pr.id === formData.projectId);
 
     switch (currentStep) {
-      case 0:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">1. Dados do Fornecedor e Projeto</h3>
+      case 0: return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4">
+            <label className="block text-sm font-medium text-gray-700">Fornecedor / CNPJ</label>
+            <select className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.supplierId} onChange={(e) => handleChange('supplierId', e.target.value)}>
+              <option value="">Selecione um fornecedor...</option>
+              {suppliers.map(su => <option key={su.id} value={su.id}>{su.name} - {su.cnpj}</option>)}
+            </select>
+            <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-lg space-y-4">
+              <label className="text-sm font-bold text-blue-800 flex items-center gap-2"><LinkIcon size={16}/> Vincular Projeto de Engenharia</label>
+              <select className="w-full p-2 border border-blue-200 rounded-md" value={formData.projectId} onChange={(e) => handleProjectSelection(e.target.value)}>
+                <option value="">Nenhum projeto selecionado</option>
+                {projects.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+              </select>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Fornecedor / CNPJ</label>
-                <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                  value={formData.supplierId}
-                  onChange={(e) => handleChange('supplierId', e.target.value)}
-                  disabled={!!initialData}
-                >
-                  <option value="">Selecione um fornecedor...</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} - {s.cnpj}</option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedSupplier && (
-                <>
-                  <div className="bg-gray-50 p-3 rounded-md col-span-2 border border-gray-200 text-sm">
-                    <p><strong>Endereço:</strong> {selectedSupplier.address}</p>
-                    <p><strong>CNPJ:</strong> {selectedSupplier.cnpj}</p>
-                  </div>
-
-                  <div className="col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center">
-                        <LinkIcon size={16} className="mr-2"/>
-                        Vincular Projeto de Engenharia (Sincronismo)
-                    </label>
-                    <select
-                      className="mt-1 block w-full rounded-md border-blue-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500"
-                      value={formData.projectId}
-                      onChange={(e) => handleProjectSelection(e.target.value)}
-                    >
-                      <option value="">Selecione um projeto para importar dados (Opcional)</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>
-                            {p.name} ({p.status === 'Active' ? 'Ativo' : 'Planejado'})
-                        </option>
-                      ))}
-                    </select>
-                    
-                    {selectedProject && (
-                        <div className="mt-3 text-xs text-blue-800 space-y-1">
-                            <p className="font-semibold flex items-center"><Info size={12} className="mr-1"/> Dados importados da Engenharia:</p>
-                            <ul className="list-disc list-inside pl-2">
-                                <li>Centro de Custo: {selectedProject.costCenter}</li>
-                                <li className="font-bold">Número do Pedido: {selectedProject.orderNumber || 'NÃO INFORMADO'}</li>
-                                <li>Valor (BID): R$ {selectedProject.estimatedValue.toLocaleString('pt-BR')}</li>
-                                <li>Prazo: {selectedProject.startDate ? new Date(selectedProject.startDate).toLocaleDateString() : '?'} a {selectedProject.endDate ? new Date(selectedProject.endDate).toLocaleDateString() : '?'}</li>
-                                {selectedProject.requiredNRs && selectedProject.requiredNRs.length > 0 && (
-                                    <li className="font-bold text-red-600">
-                                        NRs Exigidas: {selectedProject.requiredNRs.map(nr => nr.toUpperCase().replace('NR', '')).join(', ')}
-                                    </li>
-                                )}
-                            </ul>
-                        </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 col-span-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Nº do Pedido</label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Tag size={16} className="text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          className="block w-full pl-10 rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                          value={formData.orderNumber || ''}
-                          onChange={(e) => handleChange('orderNumber', e.target.value)}
-                          placeholder="Ex: 4500012345"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Tipo de Serviço</label>
-                      <input
-                        type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500 bg-gray-50"
-                        value={formData.serviceType}
-                        readOnly
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Filiais envolvidas (com CNPJs)</label>
-                    <input
-                      type="text"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                      value={formData.supplierBranches}
-                      onChange={(e) => handleChange('supplierBranches', e.target.value)}
-                      placeholder="Ex: Não aplicável"
-                    />
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Local de Prestação (Unidade)</label>
-                    <input
-                      type="text"
-                      list="registered-units"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                      value={formData.serviceLocation}
-                      onChange={(e) => handleChange('serviceLocation', e.target.value)}
-                      placeholder="Busque por uma unidade cadastrada..."
-                    />
-                    <datalist id="registered-units">
-                        {units.map(u => <option key={u.id} value={u.name} />)}
-                    </datalist>
-                  </div>
-                </>
-              )}
+               <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">Nº do Pedido</label>
+                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
+               </div>
+               <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">Local de Prestação</label>
+                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.serviceLocation} onChange={e => handleChange('serviceLocation', e.target.value)} />
+               </div>
             </div>
           </div>
-        );
-
-      case 1:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">2. Documentação Legal</h3>
-            <div className="space-y-4">
-              <div className="flex items-start p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center h-5">
-                  <input
-                    id="docSocial"
-                    type="checkbox"
-                    checked={formData.docSocialContract}
-                    onChange={(e) => handleChange('docSocialContract', e.target.checked)}
-                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                </div>
-                <div className="ml-3 text-sm">
-                  <label htmlFor="docSocial" className="font-medium text-gray-700">Contrato Social</label>
-                  <p className="text-gray-500">Confirmar se o documento está anexo e é a última alteração consolidada.</p>
-                </div>
-              </div>
-              <div className="flex items-start p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center h-5">
-                  <input
-                    id="docSerasa"
-                    type="checkbox"
-                    checked={formData.docSerasa}
-                    onChange={(e) => handleChange('docSerasa', e.target.checked)}
-                    className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                </div>
-                <div className="ml-3 text-sm">
-                  <label htmlFor="docSerasa" className="font-medium text-gray-700">Pesquisas / Documentos (Serasa/Certidões)</label>
-                  <p className="text-gray-500">Confirmar a situação cadastral e financeira do fornecedor.</p>
-                </div>
-              </div>
+        </div>
+      );
+      case 1: return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">2. Documentação e Compliance</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
+              <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSocialContract} onChange={e => handleChange('docSocialContract', e.target.checked)} />
+              <span className="text-sm font-medium text-gray-700">Contrato Social</span>
+            </label>
+            <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
+              <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSerasa} onChange={e => handleChange('docSerasa', e.target.checked)} />
+              <span className="text-sm font-medium text-gray-700">Pesquisas Serasa/Certidões</span>
+            </label>
+          </div>
+        </div>
+      );
+      case 2: return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">3. Escopo Técnico</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Objeto do Fornecimento</label>
+              <textarea rows={2} className="w-full p-2 border border-gray-300 rounded-md" value={formData.objectDescription} onChange={e => handleChange('objectDescription', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Detalhada do Escopo</label>
+              <textarea rows={8} className="w-full p-2 border border-gray-300 rounded-md" value={formData.scopeDescription} onChange={e => handleChange('scopeDescription', e.target.value)} />
             </div>
           </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">3. Objeto e Escopo</h3>
+        </div>
+      );
+      case 3: return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">4. Equipe e Responsáveis</h3>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Objeto de Fornecimento</label>
-              <textarea
-                rows={3}
-                className="block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                value={formData.objectDescription}
-                onChange={(e) => handleChange('objectDescription', e.target.value)}
-              />
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável Técnico (ART/RRT)</label>
+              <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Ex: Nome Completo + Registro" />
             </div>
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium text-gray-700">Escopo Detalhado</label>
-                <button 
-                  onClick={() => handleAiDraft('scopeDescription', `Detalhe o escopo para: ${formData.objectDescription}`)}
-                  disabled={aiGenerating}
-                  className="flex items-center text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200 transition-colors"
-                >
-                  <Wand2 size={14} className="mr-1" />
-                  IA: Sugerir Escopo
-                </button>
-              </div>
-              <textarea
-                rows={8}
-                className="block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-primary-500 focus:ring-primary-500"
-                value={formData.scopeDescription}
-                onChange={(e) => handleChange('scopeDescription', e.target.value)}
-              />
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">4. Equipe e Responsáveis</h3>
-            <div>
-               <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center">
-                 <Users size={16} className="mr-2 text-primary-600"/> Representantes Legais
-               </h4>
-               {formData.prepostos.map((p, idx) => (
-                 <div key={idx} className="flex flex-col md:flex-row gap-2 mb-3 items-start bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <input placeholder="Nome" value={p.name} onChange={(e) => updatePreposto(idx, 'name', e.target.value)} className="flex-1 rounded-md border-gray-300 p-2 border text-sm" />
-                    <input placeholder="Cargo" value={p.role} onChange={(e) => updatePreposto(idx, 'role', e.target.value)} className="flex-1 rounded-md border-gray-300 p-2 border text-sm" />
-                    <input placeholder="E-mail" value={p.email} onChange={(e) => updatePreposto(idx, 'email', e.target.value)} className="flex-1 rounded-md border-gray-300 p-2 border text-sm" />
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assinantes do Contrato (Prepostos)</label>
+              {formData.prepostos.map((pre, idx) => (
+                <div key={idx} className="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-2 relative bg-gray-50">
+                    <input placeholder="Nome" className="p-2 border rounded text-xs" value={pre.name} onChange={e => {
+                      const n = [...formData.prepostos]; n[idx].name = e.target.value; handleChange('prepostos', n);
+                    }} />
+                    <input placeholder="Cargo" className="p-2 border rounded text-xs" value={pre.role} onChange={e => {
+                      const n = [...formData.prepostos]; n[idx].role = e.target.value; handleChange('prepostos', n);
+                    }} />
+                    <input placeholder="E-mail" className="p-2 border rounded text-xs" value={pre.email} onChange={e => {
+                      const n = [...formData.prepostos]; n[idx].email = e.target.value; handleChange('prepostos', n);
+                    }} />
                     {formData.prepostos.length > 1 && (
-                      <button onClick={() => removePreposto(idx)} className="text-red-500 p-2 hover:bg-red-50 rounded">
-                        <Trash2 size={16} />
-                      </button>
+                      <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-white text-red-500 border rounded-full p-1"><X size={12}/></button>
                     )}
-                 </div>
-               ))}
-               <button onClick={addPreposto} className="flex items-center text-sm text-primary-600 hover:text-primary-800 font-medium">
-                 <Plus size={16} className="mr-1" /> Adicionar Assinante
-               </button>
+                </div>
+              ))}
+              <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:''}])} className="text-xs font-bold text-primary-600 flex items-center gap-1"><Plus size={14}/> Adicionar Assinante</button>
             </div>
           </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">5. Recursos</h3>
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <input type="checkbox" checked={formData.hasMaterials} onChange={(e) => handleChange('hasMaterials', e.target.checked)} className="h-4 w-4 text-primary-600 border-gray-300 rounded" />
-                <label className="ml-2 block text-sm font-medium text-gray-900">Há materiais inclusos?</label>
-              </div>
-              {formData.hasMaterials && <textarea className="block w-full rounded-md border-gray-300 p-2 border text-sm" value={formData.materialsList} onChange={(e) => handleChange('materialsList', e.target.value)} />}
-            </div>
+        </div>
+      );
+      case 4: return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">5. Recursos e Materiais</h3>
+          <div className="space-y-4">
+             <div className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={formData.hasMaterials} onChange={e => handleChange('hasMaterials', e.target.checked)} /> 
+                  <span className="font-bold text-gray-700">Inclui Materiais?</span>
+                </label>
+                {formData.hasMaterials && (
+                  <textarea rows={4} className="w-full p-3 border rounded-xl text-sm" value={formData.materialsList} onChange={e => handleChange('materialsList', e.target.value)} placeholder="Liste os materiais..."/>
+                )}
+             </div>
+             <div className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={formData.hasRental} onChange={e => handleChange('hasRental', e.target.checked)} /> 
+                  <span className="font-bold text-gray-700">Inclui Locação / Equipamentos?</span>
+                </label>
+                {formData.hasRental && (
+                  <textarea rows={3} className="w-full p-3 border rounded-xl text-sm" value={formData.rentalList} onChange={e => handleChange('rentalList', e.target.value)} placeholder="Liste os equipamentos..."/>
+                )}
+             </div>
+             <div className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={formData.hasComodato} onChange={e => handleChange('hasComodato', e.target.checked)} /> 
+                  <span className="font-bold text-gray-700">Inclui Comodato?</span>
+                </label>
+                {formData.hasComodato && (
+                  <textarea rows={2} className="w-full p-3 border rounded-xl text-sm" value={formData.comodatoList} onChange={e => handleChange('comodatoList', e.target.value)} placeholder="Descreva os itens em comodato..."/>
+                )}
+             </div>
           </div>
-        );
-
-      case 5:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">6. Financeiro</h3>
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                 <label className="block text-sm font-medium text-gray-700">Início</label>
-                 <input type="date" className="block w-full rounded-md border-gray-300 border p-2" value={formData.startDate} onChange={(e) => handleChange('startDate', e.target.value)} />
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700">Fim</label>
-                 <input type="date" className="block w-full rounded-md border-gray-300 border p-2" value={formData.endDate} onChange={(e) => handleChange('endDate', e.target.value)} />
+        </div>
+      );
+      case 5: return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">6. Condições Comerciais</h3>
+          
+          <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+               <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">Valor Total Estimado</label>
+               <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-700 text-lg">R$</span>
+                  <input type="number" className="w-full pl-10 pr-4 py-3 bg-white border border-emerald-200 rounded-xl text-xl font-black text-emerald-900 focus:ring-emerald-500" value={formData.value} onChange={e => handleChange('value', parseFloat(e.target.value))}/>
                </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Valor (R$)</label>
-              <input type="number" className="block w-full rounded-md border-gray-300 border p-2" value={formData.value} onChange={(e) => handleChange('value', parseFloat(e.target.value))} />
-            </div>
-          </div>
-        );
-
-      case 10:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-900 border-b pb-2">11. Revisão</h3>
-            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 space-y-4 text-sm text-gray-800">
-               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold text-gray-500 uppercase text-xs">Fornecedor</h4>
-                    <p className="font-medium text-lg">{selectedSupplier?.name || "N/A"}</p>
-                    <p>CNPJ: {selectedSupplier?.cnpj}</p>
-                    <p>Local: {formData.serviceLocation}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-500 uppercase text-xs">Identificação do Pedido</h4>
-                    <p className="font-medium text-lg text-primary-700 flex items-center">
-                      <Tag size={18} className="mr-2" />
-                      Pedido: {formData.orderNumber || 'NÃO INFORMADO'}
-                    </p>
-                    <p className="mt-2 font-semibold text-gray-500 uppercase text-xs">Valores</p>
-                    <p className="font-medium">R$ {formData.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-               </div>
-               <div className="border-t border-gray-200 pt-4">
-                  <h4 className="font-semibold text-gray-500 uppercase text-xs mb-1">Objeto</h4>
-                  <p>{formData.objectDescription}</p>
+               <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">Vigência (Início e Término)</label>
+               <div className="flex items-center gap-2">
+                  <input type="date" className="flex-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm" value={formData.startDate} onChange={e => handleChange('startDate', e.target.value)}/>
+                  <span className="text-emerald-400 font-bold">até</span>
+                  <input type="date" className="flex-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm" value={formData.endDate} onChange={e => handleChange('endDate', e.target.value)}/>
                </div>
             </div>
           </div>
-        );
 
-      default:
-        return <div>Etapa não configurada</div>;
+          <div className="grid grid-cols-1 gap-4">
+             <div>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Forma de Pagamento</label>
+                <input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} />
+             </div>
+             <div>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Cronograma de Faturamento</label>
+                <textarea rows={3} className="w-full p-3 border rounded-xl text-sm" value={formData.scheduleSteps} onChange={e => handleChange('scheduleSteps', e.target.value)} />
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                   <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">CAP / Limite</label>
+                   <input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.capLimit} onChange={e => handleChange('capLimit', e.target.value)} />
+                </div>
+                <div>
+                   <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Índice de Reajuste</label>
+                   <input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.correctionIndex} onChange={e => handleChange('correctionIndex', e.target.value)} />
+                </div>
+             </div>
+             <div>
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Garantias</label>
+                <input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.warranties} onChange={e => handleChange('warranties', e.target.value)} />
+             </div>
+          </div>
+        </div>
+      );
+      case 6: return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pontos de Atenção / Riscos</label>
+              <textarea rows={4} className="w-full p-3 border border-red-100 bg-red-50/20 rounded-xl text-sm" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Aspectos Jurídicos e de Risco</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {[
+                  { id: 'aspectStandardDraft', label: 'Minuta padrão' },
+                  { id: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
+                  { id: 'aspectConfidentiality', label: 'Sigilo / Confidencialidade' },
+                  { id: 'aspectTermination', label: 'Rescisão e penalidades' },
+                  { id: 'aspectWarranties', label: 'Garantias exigidas' },
+                  { id: 'aspectWarrantyStart', label: 'Contagem da garantia' },
+                  { id: 'aspectPostTermination', label: 'Obrigações pós-encerramento' },
+                  { id: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
+                  { id: 'aspectAdvancePayment', label: 'Antecipação de pagamento' },
+                  { id: 'aspectNonStandard', label: 'Condições não padrão (Outros)' },
+                ].map(item => (
+                  <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input type="checkbox" className="h-4 w-4 text-primary-600" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                    <span className="text-sm text-gray-700">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+      case 7: return (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">7.2 Checklist de Documentos Obrigatórios</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {[
+              { id: 'docCheckCommercial', label: 'Acordo Comercial' },
+              { id: 'docCheckPO', label: 'Pedido de Compra (PO)' },
+              { id: 'docCheckCompliance', label: 'Termo de Conformidade' },
+              { id: 'docCheckSupplierAcceptance', label: 'Aceite do Fornecedor' },
+              { id: 'docCheckSystemRegistration', label: 'Registro no Sistema' },
+              { id: 'docCheckSupplierReport', label: 'Relatório de Avaliação' },
+              { id: 'docCheckFiscalValidation', label: 'Documentos Fiscais Validados' },
+              { id: 'docCheckSafetyDocs', label: 'Docs Segurança do Trabalho' },
+              { id: 'docCheckTrainingCertificates', label: 'Certificados de Treinamentos' },
+            ].map(item => (
+              <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" className="h-5 w-5 text-primary-600" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                <span className="text-sm text-gray-600">{item.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      );
+      case 8: return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-gray-800">8. Documentos Anexos</h3>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{formData.attachments.length} arquivos</span>
+          </div>
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2"><FileCheck size={14} /> Principais</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {['Contrato Social', 'Relatório Serasa', 'Orçamento', 'Pedido de Compra'].map(type => {
+                  const hasFile = formData.attachments.some(a => a.type === type);
+                  return (
+                    <div key={type} className={`p-4 border rounded-2xl flex items-center justify-between ${hasFile ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
+                      <span className={`text-sm font-bold ${hasFile ? 'text-emerald-700' : 'text-slate-700'}`}>{type}</span>
+                      <label className={`p-2 rounded-xl text-xs font-bold cursor-pointer ${hasFile ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Upload size={16} />
+                        <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2"><FileStack size={14} /> Certidões e Atos</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {['CND Federal', 'CND Estadual', 'CND Municipal', 'CND Trabalhista', 'Certidão FGTS', 'Ata ou Procuração'].map(type => {
+                  const hasFile = formData.attachments.some(a => a.type === type);
+                  return (
+                    <div key={type} className={`p-3 border rounded-xl flex flex-col gap-2 ${hasFile ? 'bg-blue-50 border-blue-100' : 'bg-white border-slate-100'}`}>
+                      <span className={`text-[10px] font-bold uppercase ${hasFile ? 'text-blue-700' : 'text-slate-500'}`}>{type}</span>
+                      <label className={`py-1.5 rounded-lg text-center text-[10px] font-black uppercase cursor-pointer ${hasFile ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                        {hasFile ? 'Trocar' : 'Anexar'}
+                        <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+      case 9: return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">10. Revisão Final</h3>
+          <div className="bg-white p-8 border rounded-[2rem] space-y-6 shadow-sm text-sm">
+            <div className="grid grid-cols-2 gap-8 border-b pb-6">
+               <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor</p><p className="font-bold text-lg">{s?.name || 'N/A'}</p><p className="text-xs text-gray-500">{s?.cnpj}</p></div>
+               <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Valor e Prazo</p><p className="font-bold text-lg text-emerald-700">R$ {formData.value.toLocaleString('pt-BR')}</p><p className="text-xs text-gray-500">{formData.startDate} a {formData.endDate}</p></div>
+            </div>
+            <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Objeto</p><p className="font-medium">{formData.objectDescription}</p></div>
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-800">
+              <FileCheck size={24} />
+              <p className="font-bold leading-tight">O PDF será gerado unificando o checklist com todos os {formData.attachments.length} anexos fornecidos.</p>
+            </div>
+          </div>
+        </div>
+      );
+      default: return null;
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-2xl border border-gray-100 flex flex-col h-[85vh] w-full max-w-5xl mx-auto overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-        <h2 className="text-xl font-bold text-primary-900">Nova Solicitação</h2>
-        <button onClick={onCancel}>&times;</button>
+    <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 flex flex-col h-[90vh] w-full max-w-5xl mx-auto overflow-hidden animate-in zoom-in-95">
+      <div className="px-10 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
+        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Editar Solicitação</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil - Checklist de Minuta</p></div>
+        <button onClick={onCancel} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><X size={28} /></button>
       </div>
-      <div className="px-6 py-4 bg-white border-b border-gray-100 flex overflow-x-auto gap-4">
-            {steps.map((label, index) => (
-                <div key={index} className={`flex-shrink-0 text-xs font-bold ${index === currentStep ? 'text-primary-700 underline' : 'text-gray-400'}`}>
-                    {index + 1}. {label}
-                </div>
-            ))}
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex overflow-x-auto gap-8 no-scrollbar scroll-smooth">
+        {steps.map((label, index) => (
+          <div key={index} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer group" onClick={() => setCurrentStep(index)}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black transition-all ${index === currentStep ? 'bg-primary-600 text-white shadow-lg' : index < currentStep ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400 group-hover:bg-gray-300'}`}>
+              {index < currentStep ? <Check size={16}/> : index + 1}
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-tighter whitespace-nowrap ${index === currentStep ? 'text-primary-600' : 'text-gray-400'}`}>{label}</span>
+          </div>
+        ))}
       </div>
-      <div className="flex-1 p-8 overflow-y-auto bg-gray-50/50">
-           {renderStepContent()}
+      <div className="flex-1 p-10 overflow-y-auto">
+        {renderStepContent()}
       </div>
-      <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-between items-center">
-        <button onClick={handleBack} disabled={currentStep === 0} className="px-5 py-2.5 rounded-lg border border-gray-300">Voltar</button>
+      <div className="px-10 py-6 border-t border-gray-100 bg-white flex justify-between items-center">
+        <button onClick={handleBack} disabled={currentStep === 0} className="px-8 py-3 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-400 disabled:opacity-30 flex items-center gap-2 hover:bg-gray-50 transition-all"><ChevronLeft size={18}/> Voltar</button>
         {currentStep === steps.length - 1 ? (
-             <button onClick={handleFinish} className="px-6 py-2.5 bg-primary-600 text-white rounded-lg">Finalizar</button>
+          <button onClick={handleFinish} disabled={isSaving} className="px-10 py-3 bg-primary-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary-100 flex items-center gap-2 hover:bg-primary-700 transition-all">
+            {isSaving ? <Loader2 size={18} className="animate-spin"/> : <FileText size={18}/>} Finalizar e Gerar PDF
+          </button>
         ) : (
-            <button onClick={handleNext} className="px-6 py-2.5 bg-primary-600 text-white rounded-lg">Próximo</button>
+          <button onClick={handleNext} className="px-10 py-3 bg-gray-900 text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-black transition-all">Próximo <ChevronRight size={18}/></button>
         )}
       </div>
     </div>

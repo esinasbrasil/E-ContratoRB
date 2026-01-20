@@ -102,6 +102,8 @@ export interface ContractRequestData {
   equipmentList: string;
   hasRental: boolean;
   rentalList: string;
+  hasComodato: boolean; // Novo campo
+  comodatoList: string; // Novo campo
   hasLabor: boolean;
   laborDetails: LaborDetail[];
   
