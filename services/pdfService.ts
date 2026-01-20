@@ -129,16 +129,20 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   // 1. DADOS DO FORNECEDOR
   printSection("1. DADOS DO FORNECEDOR");
-  const halfWidth = contentWidth / 2;
-  const col2 = margin + halfWidth;
+  const thirdWidth = contentWidth / 3;
+  const col2 = margin + thirdWidth + 5;
+  const col3 = margin + (thirdWidth * 2) + 5;
+
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
   doc.text("RAZÃO SOCIAL", margin, currentY); 
   doc.text("CNPJ", col2, currentY);
+  doc.text("Nº DO PEDIDO", col3, currentY); // ADICIONADO AQUI
   currentY += 4.5;
   
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
   doc.text(safeText(supplier?.name), margin, currentY); 
   doc.text(safeText(supplier?.cnpj), col2, currentY);
+  doc.text(safeText(data.orderNumber), col3, currentY); // VALOR DO PEDIDO
   currentY += 8;
   
   printMultiLineText("ENDEREÇO", supplier?.address || "-");
@@ -221,11 +225,11 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   checkPageOverflow(15);
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
   doc.text("CAP / LIMITE", margin, currentY); 
-  doc.text("ÍNDICE DE REAJUSTE", margin + halfWidth, currentY);
+  doc.text("ÍNDICE DE REAJUSTE", margin + (contentWidth / 2), currentY);
   currentY += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
   doc.text(safeText(data.capLimit), margin, currentY); 
-  doc.text(safeText(data.correctionIndex), margin + halfWidth, currentY);
+  doc.text(safeText(data.correctionIndex), margin + (contentWidth / 2), currentY);
   currentY += 10;
   
   printMultiLineText("GARANTIAS", data.warranties || "-");
