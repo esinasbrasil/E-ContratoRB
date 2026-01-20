@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, Unit, NR } from '../types';
-import { HardHat, Plus, Save, X, Paperclip, CheckSquare, Calendar, DollarSign, MapPin, Hash, ArrowLeft } from 'lucide-react';
+import { HardHat, Plus, Save, X, Paperclip, CheckSquare, Calendar, DollarSign, MapPin, Hash, ArrowLeft, Tag } from 'lucide-react';
 
 interface EngineeringModuleProps {
   projects: Project[];
@@ -29,6 +29,7 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
     name: '',
     unitId: '',
     costCenter: '',
+    orderNumber: '',
     estimatedValue: 0,
     startDate: '',
     endDate: '',
@@ -45,6 +46,7 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
         name: '',
         unitId: '',
         costCenter: '',
+        orderNumber: '',
         estimatedValue: 0,
         startDate: '',
         endDate: '',
@@ -72,6 +74,7 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
       name: formData.name!,
       unitId: formData.unitId!,
       costCenter: formData.costCenter || '',
+      orderNumber: formData.orderNumber || '',
       description: formData.description || '',
       estimatedValue: Number(formData.estimatedValue) || 0,
       startDate: formData.startDate || '',
@@ -100,7 +103,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      // Mock upload just to show interface interaction
       if (e.target.files?.[0]) {
           const file = e.target.files[0];
           const newAtt = {
@@ -127,7 +129,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-8">
-                    {/* Basic Info */}
                     <section>
                         <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Detalhes do Projeto</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -146,11 +147,19 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                                     {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Centro de Custo</label>
-                                <input type="text" className="mt-1 block w-full rounded-md border-gray-300 border p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                                    value={formData.costCenter} onChange={e => setFormData({...formData, costCenter: e.target.value})}
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Centro de Custo</label>
+                                    <input type="text" className="mt-1 block w-full rounded-md border-gray-300 border p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                        value={formData.costCenter} onChange={e => setFormData({...formData, costCenter: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Nº do Pedido</label>
+                                    <input type="text" className="mt-1 block w-full rounded-md border-gray-300 border p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                        value={formData.orderNumber} onChange={e => setFormData({...formData, orderNumber: e.target.value})}
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Tipo do Projeto</label>
@@ -198,7 +207,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                         </div>
                     </section>
 
-                    {/* Escopo e Anexos */}
                     <section>
                         <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Escopo Técnico e Arquivos</h3>
                         <div className="bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300 text-center">
@@ -223,10 +231,8 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                         )}
                     </section>
 
-                    {/* NRs Checklist */}
                     <section>
                         <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Normas Regulamentadoras (NRs) Aplicáveis</h3>
-                        <p className="text-sm text-gray-500 mb-4">O engenheiro deve selecionar quais normas são obrigatórias para a execução deste projeto.</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {NR_LIST.map(nr => (
                                 <div key={nr.id} 
@@ -239,7 +245,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                                     <div>
                                         <h4 className="font-bold text-gray-900">{nr.number}</h4>
                                         <p className="text-sm font-medium text-gray-700">{nr.name}</p>
-                                        <p className="text-xs text-gray-500 mt-1">{nr.description}</p>
                                     </div>
                                 </div>
                             ))}
@@ -260,7 +265,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
     );
   }
 
-  // LIST VIEW
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
         <header className="bg-blue-900 text-white shadow-lg">
@@ -285,7 +289,6 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                 <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
                     <HardHat size={64} className="mx-auto text-gray-300 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900">Nenhum projeto registrado</h3>
-                    <p className="text-gray-500 mt-1">Utilize o botão acima para cadastrar novos projetos de engenharia.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -298,28 +301,15 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
                                           project.status === 'Completed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                         {project.status === 'Active' ? 'Ativo' : project.status === 'Completed' ? 'Concluído' : 'Planejado'}
                                     </span>
-                                    <span className="text-xs text-gray-500 border px-2 py-0.5 rounded">{project.type || 'Projeto'}</span>
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">{project.name}</h3>
-                                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
-                                
                                 <div className="space-y-2 text-sm text-gray-500">
                                     <div className="flex items-center"><MapPin size={16} className="mr-2 text-gray-400" /> {units.find(u => u.id === project.unitId)?.name}</div>
-                                    <div className="flex items-center"><Hash size={16} className="mr-2 text-gray-400" /> CC: {project.costCenter}</div>
-                                    <div className="flex items-center"><Calendar size={16} className="mr-2 text-gray-400" /> {new Date(project.startDate).toLocaleDateString()} - {new Date(project.endDate).toLocaleDateString()}</div>
+                                    <div className="flex items-center"><Tag size={16} className="mr-2 text-gray-400" /> Pedido: {project.orderNumber || 'N/A'}</div>
                                     <div className="flex items-center"><DollarSign size={16} className="mr-2 text-green-500" /> R$ {project.estimatedValue.toLocaleString('pt-BR')}</div>
                                 </div>
                             </div>
-                            
-                            <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-between items-center">
-                                <div className="flex -space-x-2">
-                                     {/* Mock avatars or NR icons */}
-                                     {project.requiredNRs && project.requiredNRs.length > 0 && (
-                                         <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full" title="NRs Obrigatórias">
-                                             {project.requiredNRs.length} NRs
-                                         </span>
-                                     )}
-                                </div>
+                            <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end">
                                 <button onClick={() => handleEdit(project)} className="text-blue-600 hover:text-blue-800 font-medium text-sm">
                                     Ver Detalhes
                                 </button>

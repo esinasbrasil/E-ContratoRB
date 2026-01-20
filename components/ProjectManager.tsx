@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Project, Unit } from '../types';
-import { Plus, Trash2, Briefcase, Calendar, DollarSign, Pencil, X, MapPin, Hash, Search, Filter } from 'lucide-react';
+import { Plus, Trash2, Briefcase, Calendar, DollarSign, Pencil, X, MapPin, Hash, Search, Filter, Tag } from 'lucide-react';
 
 interface ProjectManagerProps {
   projects: Project[];
@@ -17,6 +18,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
     name: '',
     unitId: '',
     costCenter: '',
+    orderNumber: '',
     description: '',
     estimatedValue: 0,
     startDate: '',
@@ -36,6 +38,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
       name: formData.name,
       unitId: formData.unitId,
       costCenter: formData.costCenter || '',
+      orderNumber: formData.orderNumber || '',
       description: formData.description || '',
       estimatedValue: Number(formData.estimatedValue) || 0,
       startDate: formData.startDate || '',
@@ -61,6 +64,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
       name: '',
       unitId: '',
       costCenter: '',
+      orderNumber: '',
       description: '',
       estimatedValue: 0,
       startDate: '',
@@ -88,7 +92,8 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
 
   const filteredProjects = projects.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.costCenter.toLowerCase().includes(searchQuery.toLowerCase())
+    p.costCenter.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.orderNumber && p.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -97,13 +102,12 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
         <h1 className="text-2xl font-bold text-gray-800">Gestão de Projetos (BID)</h1>
       </div>
 
-      {/* Barra de Busca de Conexão */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar projeto por nome ou Centro de Custo..." 
+            placeholder="Buscar projeto por nome, CC ou Pedido..." 
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -116,7 +120,6 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Formulário */}
         <div className="xl:col-span-1">
           <div className={`bg-white p-6 rounded-xl shadow-sm border sticky top-6 transition-all duration-300 ${editingId ? 'border-primary-300 ring-2 ring-primary-50' : 'border-gray-100'}`}>
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
@@ -169,6 +172,19 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
                     />
                  </div>
                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nº do Pedido</label>
+                    <input
+                      type="text"
+                      value={formData.orderNumber}
+                      onChange={(e) => handleChange('orderNumber', e.target.value)}
+                      placeholder="Opcional"
+                      className="w-full rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                    />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select
                       value={formData.status}
@@ -180,16 +196,15 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
                       <option value="Completed">Concluído</option>
                     </select>
                  </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor Estimado (R$)</label>
-                <input
-                  type="number"
-                  value={formData.estimatedValue}
-                  onChange={(e) => handleChange('estimatedValue', e.target.value)}
-                  className="w-full rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                />
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Estimado (R$)</label>
+                    <input
+                      type="number"
+                      value={formData.estimatedValue}
+                      onChange={(e) => handleChange('estimatedValue', e.target.value)}
+                      className="w-full rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                    />
+                 </div>
               </div>
 
               <button
@@ -202,7 +217,6 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
           </div>
         </div>
 
-        {/* Lista */}
         <div className="xl:col-span-2 space-y-4">
              {filteredProjects.length === 0 ? (
                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
@@ -227,7 +241,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
                                     <DollarSign size={14} className="mr-1" /> R$ {project.estimatedValue.toLocaleString('pt-BR')}
                                 </div>
                                 <div className="flex items-center">
-                                    <Calendar size={14} className="mr-2 text-gray-400" /> {project.status === 'Active' ? 'Em Andamento' : 'Programado'}
+                                    <Tag size={14} className="mr-2 text-gray-400" /> Pedido: {project.orderNumber || 'N/A'}
                                 </div>
                             </div>
                          </div>
