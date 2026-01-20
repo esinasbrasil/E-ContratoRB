@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle, Save } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -40,8 +40,8 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   onSave 
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [aiGenerating, setAiGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDraftSaving, setIsDraftSaving] = useState(false);
   
   const [formData, setFormData] = useState<ContractRequestData>({
     supplierId: preSelectedSupplierId || '',
@@ -145,6 +145,24 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!formData.supplierId) {
+      alert("Selecione um fornecedor para salvar o rascunho.");
+      return;
+    }
+    setIsDraftSaving(true);
+    try {
+      if (onSave) {
+        const success = await onSave(formData, formData.supplierId, formData.value);
+        if (success) onCancel();
+      }
+    } catch (error) {
+      alert("Erro ao salvar rascunho.");
+    } finally {
+      setIsDraftSaving(false);
+    }
+  };
+
   const handleFinish = async () => {
     if (!formData.supplierId) {
       alert("Por favor, selecione um fornecedor no Passo 1.");
@@ -170,8 +188,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
 
   const renderStepContent = () => {
     const s = suppliers.find(su => su.id === formData.supplierId);
-    const p = projects.find(pr => pr.id === formData.projectId);
-
     switch (currentStep) {
       case 0: return (
         <div className="space-y-6">
@@ -299,7 +315,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       case 5: return (
         <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">6. Condições Comerciais</h3>
-          
           <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">Valor Total Estimado</label>
@@ -317,7 +332,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                </div>
             </div>
           </div>
-
           <div className="grid grid-cols-1 gap-4">
              <div>
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Forma de Pagamento</label>
@@ -449,7 +463,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           <h3 className="text-lg font-bold text-gray-800">10. Revisão Final</h3>
           <div className="bg-white p-8 border rounded-[2rem] space-y-6 shadow-sm text-sm">
             <div className="grid grid-cols-2 gap-8 border-b pb-6">
-               <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor</p><p className="font-bold text-lg">{s?.name || 'N/A'}</p><p className="text-xs text-gray-500">{s?.cnpj}</p></div>
+               <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor</p><p className="font-bold text-lg">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'N/A'}</p><p className="text-xs text-gray-500">{suppliers.find(s=>s.id===formData.supplierId)?.cnpj}</p></div>
                <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Valor e Prazo</p><p className="font-bold text-lg text-emerald-700">R$ {formData.value.toLocaleString('pt-BR')}</p><p className="text-xs text-gray-500">{formData.startDate} a {formData.endDate}</p></div>
             </div>
             <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Objeto</p><p className="font-medium">{formData.objectDescription}</p></div>
@@ -484,7 +498,18 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         {renderStepContent()}
       </div>
       <div className="px-10 py-6 border-t border-gray-100 bg-white flex justify-between items-center">
-        <button onClick={handleBack} disabled={currentStep === 0} className="px-8 py-3 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-400 disabled:opacity-30 flex items-center gap-2 hover:bg-gray-50 transition-all"><ChevronLeft size={18}/> Voltar</button>
+        <div className="flex gap-2">
+          <button onClick={handleBack} disabled={currentStep === 0} className="px-6 py-3 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-400 disabled:opacity-30 flex items-center gap-2 hover:bg-gray-50 transition-all">
+            <ChevronLeft size={18}/> Voltar
+          </button>
+          <button 
+            onClick={handleSaveDraft} 
+            disabled={isDraftSaving || !formData.supplierId} 
+            className="px-6 py-3 rounded-2xl border-2 border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2 hover:bg-emerald-50 transition-all disabled:opacity-30"
+          >
+            {isDraftSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Salvar Rascunho
+          </button>
+        </div>
         {currentStep === steps.length - 1 ? (
           <button onClick={handleFinish} disabled={isSaving} className="px-10 py-3 bg-primary-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary-100 flex items-center gap-2 hover:bg-primary-700 transition-all">
             {isSaving ? <Loader2 size={18} className="animate-spin"/> : <FileText size={18}/>} Finalizar e Gerar PDF
