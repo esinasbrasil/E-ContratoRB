@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Supplier, SupplierStatus, ServiceCategory } from '../types';
 import { 
@@ -19,9 +20,10 @@ import {
 interface SupplierManagerProps {
   suppliers: Supplier[];
   serviceCategories: ServiceCategory[];
-  onAdd: (supplier: Supplier) => Promise<void>;
-  onUpdate: (supplier: Supplier) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  // Fix: Change return types to Promise<any> to resolve assignment incompatibility with Promise<boolean>
+  onAdd: (supplier: Supplier) => Promise<any>;
+  onUpdate: (supplier: Supplier) => Promise<any>;
+  onDelete: (id: string) => Promise<any>;
   onOpenContractWizard: (id: string) => void;
   onRiskAnalysis: (supplier: Supplier) => void;
   analyzingRiskId: string | null;

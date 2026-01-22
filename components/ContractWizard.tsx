@@ -173,10 +173,14 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     setIsSaving(true);
     try {
       const supplier = suppliers.find(s => s.id === formData.supplierId);
+      // Tentativa de encontrar a unidade pelo nome salvo no local de prestação ou pelo projeto
+      const unit = units.find(u => u.name === formData.serviceLocation) || 
+                   units.find(u => u.id === projects.find(p => p.id === formData.projectId)?.unitId);
+      
       let success = true;
       if (onSave) success = await onSave(formData, formData.supplierId, formData.value);
       if (success) {
-        await mergeAndSavePDF(formData, supplier, settings);
+        await mergeAndSavePDF(formData, supplier, settings, unit);
         onCancel();
       }
     } catch (error) {
@@ -210,8 +214,8 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                   <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
                </div>
                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase">Local de Prestação</label>
-                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.serviceLocation} onChange={e => handleChange('serviceLocation', e.target.value)} />
+                  <label className="text-xs font-bold text-gray-500 uppercase">Local de Prestação (Unidade)</label>
+                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.serviceLocation} onChange={e => handleChange('serviceLocation', e.target.value)} placeholder="Ex: BA01 - SALTO" />
                </div>
             </div>
           </div>
