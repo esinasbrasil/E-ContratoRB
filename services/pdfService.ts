@@ -68,7 +68,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    // REMOVIDO CNPJ DO CABEÇALHO CONFORME SOLICITADO
+    // REMOVIDO CNPJ DO CABEÇALHO PARA EVITAR DADOS FIXOS INCORRETOS
     const headerInfo = `Pedido: ${safeText(data.orderNumber)}`;
     doc.text(headerInfo, pageWidth - margin, 20, { align: "right" });
     
@@ -135,38 +135,26 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   drawHeader();
 
-  // 1. UNIDADE CONTRATANTE (Estilizada conforme exemplo)
+  // 1. UNIDADE CONTRATANTE (Layout detalhado conforme solicitado)
   printSection("1. UNIDADE CONTRATANTE");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setTextColor(15, 23, 42); 
   doc.text(safeText(unit?.name || data.serviceLocation).toUpperCase(), margin, currentY);
-  currentY += 8;
+  currentY += 7;
 
-  // Linha de CNPJ/IE com ícone decorativo (simulado)
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(71, 85, 105); // slate-600
+  doc.setTextColor(100, 100, 100);
   
-  // Desenha um pequeno ícone de documento
-  doc.setDrawColor(148, 163, 184); // slate-400
-  doc.rect(margin, currentY - 3, 3, 4);
-  doc.line(margin + 0.5, currentY - 1, margin + 2.5, currentY - 1);
-  doc.line(margin + 0.5, currentY - 2, margin + 2.5, currentY - 2);
-
-  const cnpjVal = unit?.cnpj ? unit.cnpj : "-";
-  const ieVal = unit?.ie ? ` | IE: ${unit.ie}` : "";
-  doc.text(`CNPJ:  ${cnpjVal}${ieVal}`, margin + 5, currentY);
-  currentY += 6;
-
-  // Linha de Endereço com ícone decorativo (simulado)
-  // Desenha um pequeno ícone de pin
-  doc.ellipse(margin + 1.5, currentY - 2.5, 1.2, 1.5);
-  doc.line(margin + 1.5, currentY - 1.2, margin + 1.5, currentY - 0.5);
-
-  const addrVal = unit?.address ? unit.address : "-";
-  const addrLines = doc.splitTextToSize(addrVal, contentWidth - 10);
-  doc.text(addrLines, margin + 5, currentY);
+  const cnpjText = unit?.cnpj ? `CNPJ: ${unit.cnpj}` : "CNPJ: -";
+  const ieText = unit?.ie ? ` | IE: ${unit.ie}` : "";
+  doc.text(`${cnpjText}${ieText}`, margin, currentY);
+  currentY += 5;
+  
+  const unitAddr = safeText(unit?.address);
+  const addrLines = doc.splitTextToSize(unitAddr, contentWidth);
+  doc.text(addrLines, margin, currentY);
   currentY += (addrLines.length * 4.5) + 5;
 
   // 2. DADOS DO FORNECEDOR

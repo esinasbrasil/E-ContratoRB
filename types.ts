@@ -82,6 +82,7 @@ export interface ContractAttachment {
 export interface ContractRequestData {
   supplierId: string;
   projectId: string;
+  unitId?: string; // Novo campo para vínculo direto com a unidade
   orderNumber?: string;
   
   supplierBranches: string;

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle, Save } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle, Save, MapPin } from 'lucide-react';
 import { generateContractClause } from '../services/geminiService';
 import { mergeAndSavePDF } from '../services/pdfService';
 
@@ -46,6 +46,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   const [formData, setFormData] = useState<ContractRequestData>({
     supplierId: preSelectedSupplierId || '',
     projectId: '',
+    unitId: '',
     orderNumber: '',
     supplierBranches: 'Não aplicável',
     serviceLocation: '',
@@ -109,20 +110,31 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   const handleProjectSelection = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
+      const unit = units.find(u => u.id === project.unitId);
       setFormData(prev => ({
         ...prev,
         projectId,
+        unitId: project.unitId,
         orderNumber: project.orderNumber || prev.orderNumber || '',
         objectDescription: project.name,
         scopeDescription: project.description,
         startDate: project.startDate,
         endDate: project.endDate,
         value: project.estimatedValue,
-        serviceLocation: units.find(u => u.id === project.unitId)?.name || prev.serviceLocation
+        serviceLocation: unit?.name || prev.serviceLocation
       }));
     } else {
-      handleChange('projectId', projectId);
+      setFormData(prev => ({ ...prev, projectId, unitId: '' }));
     }
+  };
+
+  const handleUnitSelection = (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
+    setFormData(prev => ({
+      ...prev,
+      unitId,
+      serviceLocation: unit?.name || ''
+    }));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
@@ -173,9 +185,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     setIsSaving(true);
     try {
       const supplier = suppliers.find(s => s.id === formData.supplierId);
-      // Tentativa de encontrar a unidade pelo nome salvo no local de prestação ou pelo projeto
-      const unit = units.find(u => u.name === formData.serviceLocation) || 
-                   units.find(u => u.id === projects.find(p => p.id === formData.projectId)?.unitId);
+      const unit = units.find(u => u.id === formData.unitId) || units.find(u => u.name === formData.serviceLocation);
       
       let success = true;
       if (onSave) success = await onSave(formData, formData.supplierId, formData.value);
@@ -191,6 +201,8 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
+  const selectedUnit = units.find(u => u.id === formData.unitId);
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 0: return (
@@ -203,7 +215,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             </select>
             <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-lg space-y-4">
               <label className="text-sm font-bold text-blue-800 flex items-center gap-2"><LinkIcon size={16}/> Vincular Projeto de Engenharia</label>
-              <select className="w-full p-2 border border-blue-200 rounded-md" value={formData.projectId} onChange={(e) => handleProjectSelection(e.target.value)}>
+              <select className="w-full p-2 border border-blue-200 rounded-md shadow-sm" value={formData.projectId} onChange={(e) => handleProjectSelection(e.target.value)}>
                 <option value="">Nenhum projeto selecionado</option>
                 {projects.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
               </select>
@@ -211,13 +223,42 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div>
                   <label className="text-xs font-bold text-gray-500 uppercase">Nº do Pedido</label>
-                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
+                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
                </div>
                <div>
                   <label className="text-xs font-bold text-gray-500 uppercase">Local de Prestação (Unidade)</label>
-                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.serviceLocation} onChange={e => handleChange('serviceLocation', e.target.value)} placeholder="Ex: BA01 - SALTO" />
+                  <select 
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm" 
+                    value={formData.unitId} 
+                    onChange={e => handleUnitSelection(e.target.value)}
+                  >
+                    <option value="">Selecione a unidade...</option>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
                </div>
             </div>
+
+            {selectedUnit && (
+              <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 mb-2">
+                  <Info size={14} /> Dados da Unidade Vinculada
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Building size={14} className="text-emerald-500" />
+                    <span className="font-bold">{selectedUnit.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <FileText size={14} className="text-emerald-500" />
+                    <span>CNPJ: {selectedUnit.cnpj} {selectedUnit.ie ? `| IE: ${selectedUnit.ie}` : ''}</span>
+                  </div>
+                  <div className="md:col-span-2 flex items-start gap-2 text-gray-500 mt-1">
+                    <MapPin size={14} className="text-emerald-500 mt-1 shrink-0" />
+                    <span className="leading-tight">{selectedUnit.address}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
