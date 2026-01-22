@@ -59,14 +59,24 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
         console.warn("Erro ao adicionar logo:", e);
       }
     }
+    
+    // Nome da Empresa em destaque (área maior)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text(companyName.toUpperCase(), pageWidth - margin, 15, { align: "right" });
+    
+    // Detalhes extras abaixo do nome
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(documentTitle, pageWidth - margin, 20, { align: "right" });
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, 24, { align: "right" });
+    // Adicionando CNPJ e Pedido no cabeçalho conforme solicitado
+    const headerInfo = `CNPJ: 01.933.054/0001-72 | Pedido: ${safeText(data.orderNumber)}`;
+    doc.text(headerInfo, pageWidth - margin, 20, { align: "right" });
+    
+    // Título e Data
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`${documentTitle} • Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, 24, { align: "right" });
     
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(margin, 32, contentWidth, 1.2, 'F');
@@ -136,13 +146,13 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
   doc.text("RAZÃO SOCIAL", margin, currentY); 
   doc.text("CNPJ", col2, currentY);
-  doc.text("Nº DO PEDIDO", col3, currentY); // ADICIONADO AQUI
+  doc.text("Nº DO PEDIDO", col3, currentY); 
   currentY += 4.5;
   
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
   doc.text(safeText(supplier?.name), margin, currentY); 
   doc.text(safeText(supplier?.cnpj), col2, currentY);
-  doc.text(safeText(data.orderNumber), col3, currentY); // VALOR DO PEDIDO
+  doc.text(safeText(data.orderNumber), col3, currentY); 
   currentY += 8;
   
   printMultiLineText("ENDEREÇO", supplier?.address || "-");
@@ -173,7 +183,10 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   // 4. EQUIPE E RESPONSÁVEIS
   printSection("4. EQUIPE E RESPONSÁVEIS");
-  printMultiLineText("RESPONSÁVEL TÉCNICO (ART/RRT)", data.technicalResponsible || "-");
+  const techRespName = safeText(data.technicalResponsible);
+  const techRespCpf = safeText(data.technicalResponsibleCpf);
+  const techRespLabel = techRespCpf !== "-" ? `${techRespName} (CPF: ${techRespCpf})` : techRespName;
+  printMultiLineText("RESPONSÁVEL TÉCNICO (ART/RRT)", techRespLabel);
   
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
   doc.text("ASSINANTES DO CONTRATO (PREPOSTOS)", margin, currentY);
@@ -182,14 +195,15 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   (data.prepostos || []).forEach(p => {
     checkPageOverflow(15);
     doc.setFillColor(248, 250, 252);
-    doc.rect(margin, currentY, contentWidth, 12, 'F');
+    doc.rect(margin, currentY, contentWidth, 14, 'F');
     doc.setDrawColor(226, 232, 240);
-    doc.rect(margin, currentY, contentWidth, 12, 'S');
+    doc.rect(margin, currentY, contentWidth, 14, 'S');
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
     doc.text(safeText(p.name), margin + 3, currentY + 5);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-    doc.text(`${safeText(p.role)} • ${safeText(p.email)}`, margin + 3, currentY + 9);
-    currentY += 15;
+    doc.text(`${safeText(p.role)} • CPF: ${safeText(p.cpf)}`, margin + 3, currentY + 9);
+    doc.text(`${safeText(p.email)}`, margin + 3, currentY + 12);
+    currentY += 18;
   });
 
   // 5. RECURSOS E MATERIAIS

@@ -65,6 +65,7 @@ export interface Preposto {
   name: string;
   role: string;
   email: string;
+  cpf: string;
 }
 
 export interface LaborDetail {
@@ -95,6 +96,7 @@ export interface ContractRequestData {
   
   prepostos: Preposto[];
   technicalResponsible: string;
+  technicalResponsibleCpf: string;
   
   hasMaterials: boolean;
   materialsList: string;

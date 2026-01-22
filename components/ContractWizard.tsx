@@ -54,8 +54,9 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     docSerasa: false,
     objectDescription: '',
     scopeDescription: '',
-    prepostos: [{ name: '', role: '', email: '' }],
+    prepostos: [{ name: '', role: '', email: '', cpf: '' }],
     technicalResponsible: '',
+    technicalResponsibleCpf: '',
     hasMaterials: false,
     materialsList: '',
     hasEquipment: false,
@@ -187,7 +188,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   };
 
   const renderStepContent = () => {
-    const s = suppliers.find(su => su.id === formData.supplierId);
     switch (currentStep) {
       case 0: return (
         <div className="space-y-6">
@@ -251,29 +251,50 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">4. Equipe e Responsáveis</h3>
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável Técnico (ART/RRT)</label>
-              <input type="text" className="w-full p-2 border border-gray-300 rounded-md" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Ex: Nome Completo + Registro" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável Técnico (ART/RRT)</label>
+                <input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Ex: Roberto Groninger Rocchi" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CPF Responsável Técnico</label>
+                <input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} placeholder="000.000.000-00" />
+              </div>
             </div>
             <div className="space-y-3">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assinantes do Contrato (Prepostos)</label>
               {formData.prepostos.map((pre, idx) => (
-                <div key={idx} className="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-2 relative bg-gray-50">
-                    <input placeholder="Nome" className="p-2 border rounded text-xs" value={pre.name} onChange={e => {
-                      const n = [...formData.prepostos]; n[idx].name = e.target.value; handleChange('prepostos', n);
-                    }} />
-                    <input placeholder="Cargo" className="p-2 border rounded text-xs" value={pre.role} onChange={e => {
-                      const n = [...formData.prepostos]; n[idx].role = e.target.value; handleChange('prepostos', n);
-                    }} />
-                    <input placeholder="E-mail" className="p-2 border rounded text-xs" value={pre.email} onChange={e => {
-                      const n = [...formData.prepostos]; n[idx].email = e.target.value; handleChange('prepostos', n);
-                    }} />
+                <div key={idx} className="p-4 border rounded-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative bg-gray-50 shadow-sm border-gray-200">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Nome</label>
+                      <input placeholder="Ex: Maria Cristina" className="w-full p-2 border rounded text-xs bg-white" value={pre.name} onChange={e => {
+                        const n = [...formData.prepostos]; n[idx].name = e.target.value; handleChange('prepostos', n);
+                      }} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Cargo</label>
+                      <input placeholder="Ex: Testemunha" className="w-full p-2 border rounded text-xs bg-white" value={pre.role} onChange={e => {
+                        const n = [...formData.prepostos]; n[idx].role = e.target.value; handleChange('prepostos', n);
+                      }} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">CPF</label>
+                      <input placeholder="000.000.000-00" className="w-full p-2 border rounded text-xs bg-white" value={pre.cpf} onChange={e => {
+                        const n = [...formData.prepostos]; n[idx].cpf = e.target.value; handleChange('prepostos', n);
+                      }} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">E-mail</label>
+                      <input placeholder="email@dominio.com" className="w-full p-2 border rounded text-xs bg-white" value={pre.email} onChange={e => {
+                        const n = [...formData.prepostos]; n[idx].email = e.target.value; handleChange('prepostos', n);
+                      }} />
+                    </div>
                     {formData.prepostos.length > 1 && (
-                      <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-white text-red-500 border rounded-full p-1"><X size={12}/></button>
+                      <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-white text-red-500 border border-red-200 shadow-sm rounded-full p-1.5 hover:bg-red-50 transition-colors"><X size={14}/></button>
                     )}
                 </div>
               ))}
-              <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:''}])} className="text-xs font-bold text-primary-600 flex items-center gap-1"><Plus size={14}/> Adicionar Assinante</button>
+              <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 p-2 hover:bg-emerald-50 rounded-lg transition-colors"><Plus size={16}/> Adicionar Assinante</button>
             </div>
           </div>
         </div>
@@ -461,7 +482,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       case 9: return (
         <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">10. Revisão Final</h3>
-          <div className="bg-white p-8 border rounded-[2rem] space-y-6 shadow-sm text-sm">
+          <div className="bg-white p-8 border rounded-[2rem] shadow-sm text-sm space-y-6">
             <div className="grid grid-cols-2 gap-8 border-b pb-6">
                <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Fornecedor</p><p className="font-bold text-lg">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'N/A'}</p><p className="text-xs text-gray-500">{suppliers.find(s=>s.id===formData.supplierId)?.cnpj}</p></div>
                <div><p className="text-xs font-bold text-gray-400 uppercase mb-1">Valor e Prazo</p><p className="font-bold text-lg text-emerald-700">R$ {formData.value.toLocaleString('pt-BR')}</p><p className="text-xs text-gray-500">{formData.startDate} a {formData.endDate}</p></div>
