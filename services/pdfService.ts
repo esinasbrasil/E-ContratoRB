@@ -135,29 +135,39 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   drawHeader();
 
-  // 1. UNIDADE CONTRATANTE (Trazendo informações completas do cadastro)
+  // 1. UNIDADE CONTRATANTE (Estilizada conforme exemplo)
   printSection("1. UNIDADE CONTRATANTE");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42); // slate-900
-  // Usa o nome da unidade cadastrada se disponível, senão o que foi digitado
   doc.text(safeText(unit?.name || data.serviceLocation).toUpperCase(), margin, currentY);
-  currentY += 7;
+  currentY += 8;
 
+  // Linha de CNPJ/IE com ícone decorativo (simulado)
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(71, 85, 105); // slate-600
   
-  // Se a unidade foi encontrada, traz CNPJ e IE do cadastro
-  const cnpjText = unit?.cnpj ? `CNPJ: ${unit.cnpj}` : 'CNPJ: -';
-  const ieText = unit?.ie ? ` | IE: ${unit.ie}` : '';
-  doc.text(`${cnpjText}${ieText}`, margin, currentY);
-  currentY += 5;
-  
-  // Endereço da unidade do cadastro
-  const unitAddrFull = safeText(unit?.address);
-  doc.text(unitAddrFull, margin, currentY);
-  currentY += 10;
+  // Desenha um pequeno ícone de documento
+  doc.setDrawColor(148, 163, 184); // slate-400
+  doc.rect(margin, currentY - 3, 3, 4);
+  doc.line(margin + 0.5, currentY - 1, margin + 2.5, currentY - 1);
+  doc.line(margin + 0.5, currentY - 2, margin + 2.5, currentY - 2);
+
+  const cnpjVal = unit?.cnpj ? unit.cnpj : "-";
+  const ieVal = unit?.ie ? ` | IE: ${unit.ie}` : "";
+  doc.text(`CNPJ:  ${cnpjVal}${ieVal}`, margin + 5, currentY);
+  currentY += 6;
+
+  // Linha de Endereço com ícone decorativo (simulado)
+  // Desenha um pequeno ícone de pin
+  doc.ellipse(margin + 1.5, currentY - 2.5, 1.2, 1.5);
+  doc.line(margin + 1.5, currentY - 1.2, margin + 1.5, currentY - 0.5);
+
+  const addrVal = unit?.address ? unit.address : "-";
+  const addrLines = doc.splitTextToSize(addrVal, contentWidth - 10);
+  doc.text(addrLines, margin + 5, currentY);
+  currentY += (addrLines.length * 4.5) + 5;
 
   // 2. DADOS DO FORNECEDOR
   printSection("2. DADOS DO FORNECEDOR");
