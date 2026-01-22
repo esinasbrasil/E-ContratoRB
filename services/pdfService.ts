@@ -60,7 +60,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
       }
     }
     
-    // Header (Keep as is with company name prominence)
+    // Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -68,7 +68,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    const headerInfo = `CNPJ: 01.933.054/0001-72 | Pedido: ${safeText(data.orderNumber)}`;
+    // REMOVIDO CNPJ DO CABEÇALHO CONFORME SOLICITADO
+    const headerInfo = `Pedido: ${safeText(data.orderNumber)}`;
     doc.text(headerInfo, pageWidth - margin, 20, { align: "right" });
     
     doc.setFontSize(8);
@@ -134,21 +135,26 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   drawHeader();
 
-  // 1. UNIDADE CONTRATANTE (Layout requested in image)
+  // 1. UNIDADE CONTRATANTE (Trazendo informações completas do cadastro)
   printSection("1. UNIDADE CONTRATANTE");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42); // slate-900
+  // Usa o nome da unidade cadastrada se disponível, senão o que foi digitado
   doc.text(safeText(unit?.name || data.serviceLocation).toUpperCase(), margin, currentY);
   currentY += 7;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  const cnpjIe = `CNPJ: ${safeText(unit?.cnpj)} ${unit?.ie ? `| IE: ${safeText(unit.ie)}` : ''}`;
-  doc.text(cnpjIe, margin, currentY);
+  
+  // Se a unidade foi encontrada, traz CNPJ e IE do cadastro
+  const cnpjText = unit?.cnpj ? `CNPJ: ${unit.cnpj}` : 'CNPJ: -';
+  const ieText = unit?.ie ? ` | IE: ${unit.ie}` : '';
+  doc.text(`${cnpjText}${ieText}`, margin, currentY);
   currentY += 5;
   
+  // Endereço da unidade do cadastro
   const unitAddrFull = safeText(unit?.address);
   doc.text(unitAddrFull, margin, currentY);
   currentY += 10;
@@ -191,7 +197,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("DESCRIÇÃO DETALHADA DO ESCOPO", data.scopeDescription || "-");
 
-  // 5. EQUIPE E RESPONSÁVEIS (Including CPFs)
+  // 5. EQUIPE E RESPONSÁVEIS
   printSection("5. EQUIPE E RESPONSÁVEIS");
   const techRespName = safeText(data.technicalResponsible);
   const techRespCpf = safeText(data.technicalResponsibleCpf);
