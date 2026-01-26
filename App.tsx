@@ -53,7 +53,6 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       if (isDemo) {
-        // Carregar do LocalStorage no modo Demo
         setSuppliers(storageService.getSuppliers());
         setProjects(storageService.getProjects());
         setUnits(storageService.getUnits());
@@ -62,7 +61,6 @@ const App: React.FC = () => {
         const settings = storageService.getSettings();
         if (settings) setCompanySettings(settings);
       } else if (isSupabaseConfigured) {
-        // Carregar do Supabase
         const [
           { data: s }, 
           { data: p }, 
@@ -116,8 +114,6 @@ const App: React.FC = () => {
     setSession(null);
   };
 
-  // --- Handlers Genéricos com Tratamento de Erro ---
-  
   const saveAction = async (table: string, data: any, storageMethod: (item: any) => void) => {
     setLoading(true);
     try {
@@ -159,22 +155,18 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Suppliers ---
   const handleAddSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
   const handleUpdateSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
   const handleDeleteSupplier = (id: string) => deleteAction('suppliers', id, storageService.deleteSupplier);
 
-  // --- Projects ---
   const handleAddProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
   const handleUpdateProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
   const handleDeleteProject = (id: string) => deleteAction('projects', id, storageService.deleteProject);
 
-  // --- Units ---
   const handleAddUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
   const handleUpdateUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
   const handleDeleteUnit = (id: string) => deleteAction('units', id, storageService.deleteUnit);
 
-  // --- Services ---
   const handleAddServiceCategory = (c: ServiceCategory) => saveAction('service_categories', c, storageService.saveService);
   const handleDeleteServiceCategory = (id: string) => deleteAction('service_categories', id, storageService.deleteService);
 
@@ -300,7 +292,7 @@ const App: React.FC = () => {
 
             {activeTab === 'contracts' && (
               <ContractManager 
-                contracts={contracts} suppliers={suppliers} settings={companySettings}
+                contracts={contracts} suppliers={suppliers} settings={companySettings} units={units}
                 onOpenWizard={() => setContractWizardSupplierId('new')}
                 onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }}
                 onDeleteContract={handleDeleteContract}

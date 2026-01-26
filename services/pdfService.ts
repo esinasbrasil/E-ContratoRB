@@ -3,32 +3,40 @@ import { jsPDF } from "jspdf";
 import { PDFDocument } from "pdf-lib";
 import { ContractRequestData, Supplier, CompanySettings, Unit } from "../types";
 
-// Auxiliar para converter base64 em Uint8Array de forma segura
+/**
+ * Converte uma string Base64 em Uint8Array com segurança,
+ * lidando com prefixos de Data URI e garantindo integridade.
+ */
 const base64ToUint8Array = (base64: string): Uint8Array => {
   try {
+    // Remove o prefixo se presente (ex: data:application/pdf;base64,)
     const pureBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+    
+    // Decodifica a string base64
     const binaryString = atob(pureBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
+    const length = binaryString.length;
+    const bytes = new Uint8Array(length);
+    
+    for (let i = 0; i < length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
+    
     return bytes;
   } catch (e) {
-    console.error("Erro na conversão Base64:", e);
+    console.error("Erro crítico na conversão Base64:", e);
     return new Uint8Array(0);
   }
 };
 
-// Garante que o valor passado para o PDF seja sempre uma string válida
 const safeText = (val: any): string => {
   if (val === null || val === undefined) return "-";
   const s = String(val).trim();
   return s === "" ? "-" : s;
 };
 
-// Verifica se os bytes representam um PDF
 const isPDF = (bytes: Uint8Array): boolean => {
   if (bytes.length < 5) return false;
+  // Verifica o cabeçalho %PDF-
   return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;
 };
 
@@ -60,7 +68,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
       }
     }
     
-    // Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -68,7 +75,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    // REMOVIDO CNPJ DO CABEÇALHO PARA EVITAR DADOS FIXOS INCORRETOS
     const headerInfo = `Pedido: ${safeText(data.orderNumber)}`;
     doc.text(headerInfo, pageWidth - margin, 20, { align: "right" });
     
@@ -135,7 +141,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   drawHeader();
 
-  // 1. UNIDADE CONTRATANTE (Layout detalhado conforme solicitado)
   printSection("1. UNIDADE CONTRATANTE");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -157,7 +162,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text(addrLines, margin, currentY);
   currentY += (addrLines.length * 4.5) + 5;
 
-  // 2. DADOS DO FORNECEDOR
   printSection("2. DADOS DO FORNECEDOR");
   const halfWidth = contentWidth / 2;
   const col2 = margin + halfWidth;
@@ -183,19 +187,16 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   printMultiLineText("FILIAIS DO FORNECEDOR ENVOLVIDAS", data.supplierBranches || "Não aplicável");
 
-  // 3. DOCUMENTAÇÃO E COMPLIANCE
   printSection("3. DOCUMENTAÇÃO E COMPLIANCE");
   doc.setFontSize(9);
   doc.text(`[ ${data.docSocialContract ? 'X' : ' '} ] Contrato Social`, margin, currentY);
   doc.text(`[ ${data.docSerasa ? 'X' : ' '} ] Pesquisas Serasa/Certidões`, margin + 60, currentY);
   currentY += 12;
 
-  // 4. ESCOPO TÉCNICO
   printSection("4. ESCOPO TÉCNICO");
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("DESCRIÇÃO DETALHADA DO ESCOPO", data.scopeDescription || "-");
 
-  // 5. EQUIPE E RESPONSÁVEIS
   printSection("5. EQUIPE E RESPONSÁVEIS");
   const techRespName = safeText(data.technicalResponsible);
   const techRespCpf = safeText(data.technicalResponsibleCpf);
@@ -220,7 +221,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 18;
   });
 
-  // 6. RECURSOS E MATERIAIS
   printSection("6. RECURSOS E MATERIAIS");
   const rListItems = [];
   if (data.hasMaterials) rListItems.push(`MATERIAIS: ${safeText(data.materialsList)}`);
@@ -228,7 +228,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   if (data.hasComodato) rListItems.push(`COMODATO: ${safeText(data.comodatoList)}`);
   printMultiLineText("RECURSOS ENVOLVIDOS", rListItems.length > 0 ? rListItems.join("\n\n") : "Não aplicável");
 
-  // 7. CONDIÇÕES COMERCIAIS
   printSection("7. CONDIÇÕES COMERCIAIS");
   checkPageOverflow(25);
   doc.setDrawColor(6, 78, 59);
@@ -262,7 +261,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   
   printMultiLineText("GARANTIAS", data.warranties || "-");
 
-  // 8. ANÁLISE DE RISCOS
   printSection("8. ANÁLISE DE RISCOS");
   printMultiLineText("Pontos de Atenção / Riscos", data.urgenciesRisks || "Nenhum risco crítico identificado.", 9, true);
 
@@ -336,45 +334,63 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
 export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit) => {
   try {
+    console.group("Iniciando geração de PDF Mesclado");
+    
+    // 1. Gera o PDF principal (Checklist)
     const mainPdfBlob = await createChecklistPDFBlob(data, supplier, settings, unit);
     const mainPdfArrayBuffer = await mainPdfBlob.arrayBuffer();
     
+    // 2. Inicializa o PDF final usando pdf-lib
     const mergedPdf = await PDFDocument.create();
+    
+    // 3. Adiciona as páginas do PDF principal
     const mainPdfDoc = await PDFDocument.load(mainPdfArrayBuffer);
     const mainPages = await mergedPdf.copyPages(mainPdfDoc, mainPdfDoc.getPageIndices());
     mainPages.forEach((page) => mergedPdf.addPage(page));
+    
+    console.log(`Páginas do Checklist adicionadas: ${mainPages.length}`);
 
+    // 4. Mescla os anexos (se houver)
     if (data.attachments && data.attachments.length > 0) {
        for (const attachment of data.attachments) {
            try {
+               console.log(`Processando anexo: ${attachment.name} (${attachment.type})`);
                const attachmentBytes = base64ToUint8Array(attachment.fileData);
+               
                if (attachmentBytes.length > 0 && isPDF(attachmentBytes)) {
-                 const attachmentPdf = await PDFDocument.load(attachmentBytes);
+                 const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
                  copiedPages.forEach((page) => mergedPdf.addPage(page));
+                 console.log(`- Sucesso: ${copiedPages.length} páginas mescladas.`);
+               } else {
+                 console.warn(`- Pulado: O arquivo "${attachment.name}" não parece ser um PDF válido.`);
                }
            } catch (err) {
-               console.warn(`Erro ao carregar anexo "${attachment.name}":`, err);
+               console.warn(`- Erro ao mesclar anexo "${attachment.name}":`, err);
            }
        }
     }
 
+    // 5. Gera os bytes finais e dispara o download
     const mergedPdfBytes = await mergedPdf.save();
     const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     
+    const fileName = `Checklist_${safeText(supplier?.name).replace(/[^a-zA-Z0-9]/g, '') || 'Contrato'}.pdf`;
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Checklist_${safeText(supplier?.name).replace(/[^a-zA-Z0-9]/g, '') || 'Contrato'}.pdf`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    console.groupEnd();
     return true;
   } catch (error: any) {
-    console.error("Erro crítico na geração do PDF:", error);
-    alert(`Ocorreu um erro ao gerar o PDF. Verifique os dados e tente novamente.`);
+    console.error("Erro crítico na geração do PDF mesclado:", error);
+    console.groupEnd();
+    alert(`Ocorreu um erro ao gerar o PDF consolidado. Verifique os anexos e tente novamente.`);
     return false;
   }
 };

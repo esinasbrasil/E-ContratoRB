@@ -1,11 +1,13 @@
+
 import React from 'react';
-import { Contract, Supplier, CompanySettings } from '../types';
+import { Contract, Supplier, CompanySettings, Unit } from '../types';
 import { FileText, Download, DollarSign, Building, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractManagerProps {
   contracts: Contract[];
   suppliers: Supplier[];
+  units: Unit[];
   settings: CompanySettings;
   onOpenWizard: () => void;
   onEditContract: (contract: Contract) => void;
@@ -15,6 +17,7 @@ interface ContractManagerProps {
 const ContractManager: React.FC<ContractManagerProps> = ({ 
   contracts, 
   suppliers, 
+  units,
   settings, 
   onOpenWizard,
   onEditContract,
@@ -23,7 +26,10 @@ const ContractManager: React.FC<ContractManagerProps> = ({
 
   const handleDownload = (contract: Contract) => {
     const supplier = suppliers.find(s => s.id === contract.supplierId);
-    mergeAndSavePDF(contract.details, supplier, settings);
+    const unit = units.find(u => u.id === contract.details.unitId) || 
+                 units.find(u => u.name === contract.details.serviceLocation);
+                 
+    mergeAndSavePDF(contract.details, supplier, settings, unit);
   };
 
   return (
