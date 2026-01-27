@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Wand2, Plus, Trash2, Upload, Paperclip, Users, Scale, FileCheck, Building, Info, Link as LinkIcon, Loader2, Tag, X, Package, Truck, Handshake, CreditCard, ListChecks, Calendar, DollarSign, FileStack, AlertTriangle, Save, MapPin } from 'lucide-react';
-import { generateContractClause } from '../services/geminiService';
+import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractWizardProps {
@@ -27,6 +26,27 @@ const steps = [
   'Doc. Obrigatórios',
   'Anexos',
   'Revisão'
+];
+
+const checklistItems = [
+  { id: 'docCheckCommercial', label: 'Acordo Comercial' },
+  { id: 'docCheckPO', label: 'Pedido de Compra (PO)' },
+  { id: 'docCheckCompliance', label: 'Termo de Compliance' },
+  { id: 'docCheckSupplierAcceptance', label: 'Aceite do Fornecedor' },
+  { id: 'docCheckSystemRegistration', label: 'Registro no Sistema' },
+  { id: 'docCheckSupplierReport', label: 'Relatório do Fornecedor' }
+];
+
+const attachmentTypes = [
+  'Contrato Social / Estatuto Social Consolidado',
+  'Ata de Eleição / Procuração',
+  'Certidão Negativa Federal',
+  'Certidão Negativa Estadual',
+  'Certidão Negativa Municipal',
+  'Certidão Negativa Trabalhista (CNDT)',
+  'Certidão de Regularidade FGTS (CRF)',
+  'Relatório Serasa',
+  'Orçamento Detalhado'
 ];
 
 const ContractWizard: React.FC<ContractWizardProps> = ({ 
@@ -169,7 +189,10 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     try {
       if (onSave) {
         const success = await onSave(formData, formData.supplierId, formData.value);
-        if (success) onCancel();
+        if (success) {
+           alert("Rascunho salvo com sucesso!");
+           onCancel();
+        }
       }
     } finally {
       setIsDraftSaving(false);
@@ -185,36 +208,31 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     
     setIsSaving(true);
     try {
-      // 1. Tenta salvar primeiro
       let success = true;
       if (onSave) {
         success = await onSave(formData, formData.supplierId, formData.value);
       }
       
-      // 2. Só gera o PDF e fecha se o salvamento funcionou
       if (success) {
         const supplier = suppliers.find(s => s.id === formData.supplierId);
         const unit = units.find(u => u.id === formData.unitId) || units.find(u => u.name === formData.serviceLocation);
         
         const pdfSuccess = await mergeAndSavePDF(formData, supplier, settings, unit);
+        
         if (pdfSuccess) {
           onCancel();
         } else {
-           alert("Dados salvos, mas erro ao gerar o arquivo PDF consolidado.");
+           alert("Dados salvos no sistema, mas houve um erro ao processar o arquivo PDF. Você pode baixar novamente na lista de contratos.");
+           onCancel();
         }
-      } else {
-        // Se o sucesso for false, o App.tsx já disparou um alert explicativo
-        console.warn("Salvamento falhou, permanecendo no wizard.");
       }
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao processar solicitação.");
+    } catch (error: any) {
+      console.error("Erro no fluxo de finalização:", error);
+      alert(`Falha ao concluir: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setIsSaving(false);
     }
   };
-
-  const selectedUnit = units.find(u => u.id === formData.unitId);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -317,14 +335,24 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">5. Recursos e Materiais</h3>
           <div className="space-y-4">
-             {['hasMaterials', 'hasRental', 'hasComodato'].map((field) => (
-                <div key={field} className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
+             {[
+               { field: 'hasMaterials', label: 'Materiais' },
+               { field: 'hasRental', label: 'Locação/Equipamentos' },
+               { field: 'hasComodato', label: 'Comodato' }
+             ].map((item) => (
+                <div key={item.field} className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={(formData as any)[field]} onChange={e => handleChange(field as any, e.target.checked)} /> 
-                    <span className="font-bold text-gray-700 capitalize">{field.replace('has', 'Inclui ')}?</span>
+                    <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={(formData as any)[item.field]} onChange={e => handleChange(item.field as any, e.target.checked)} /> 
+                    <span className="font-bold text-gray-700">Inclui {item.label}?</span>
                   </label>
-                  {(formData as any)[field] && (
-                    <textarea rows={3} className="w-full p-3 border rounded-xl text-sm" value={(formData as any)[field.replace('has', '').toLowerCase() + 'List']} onChange={e => handleChange(field.replace('has', '').toLowerCase() + 'List' as any, e.target.value)} />
+                  {(formData as any)[item.field] && (
+                    <textarea 
+                      placeholder={`Descreva os ${item.label.toLowerCase()} envolvidos...`}
+                      rows={3} 
+                      className="w-full p-3 border rounded-xl text-sm" 
+                      value={(formData as any)[item.field.replace('has', '').toLowerCase() + 'List']} 
+                      onChange={e => handleChange(item.field.replace('has', '').toLowerCase() + 'List' as any, e.target.value)} 
+                    />
                   )}
                 </div>
              ))}
@@ -347,17 +375,17 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       case 6: return (
         <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
-          <textarea rows={6} className="w-full p-3 border border-red-100 bg-red-50/20 rounded-xl text-sm" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Pontos de atenção..."/>
+          <textarea rows={6} className="w-full p-3 border border-red-100 bg-red-50/20 rounded-xl text-sm" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Descreva aqui pontos de atenção, urgências ou riscos críticos identificados..."/>
         </div>
       );
       case 7: return (
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">8. Checklist de Documentos Obrigatórios</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {['docCheckCommercial', 'docCheckPO', 'docCheckCompliance', 'docCheckSupplierAcceptance', 'docCheckSystemRegistration', 'docCheckSupplierReport'].map(item => (
-              <label key={item} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                <input type="checkbox" className="h-5 w-5 text-primary-600" checked={(formData as any)[item]} onChange={e => handleChange(item as any, e.target.checked)} />
-                <span className="text-sm text-gray-600 capitalize">{item.replace('docCheck', '').replace(/([A-Z])/g, ' $1')}</span>
+            {checklistItems.map(item => (
+              <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                <input type="checkbox" className="h-5 w-5 text-primary-600" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                <span className="text-sm text-gray-600 font-medium">{item.label}</span>
               </label>
             ))}
           </div>
@@ -365,16 +393,31 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       );
       case 8: return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center"><h3 className="text-lg font-bold text-gray-800">9. Documentos Anexos (PDF 2MB máx)</h3><span className="text-xs font-bold text-slate-400 uppercase">{formData.attachments.length} arquivos</span></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {['Contrato Social', 'Relatório Serasa', 'Orçamento', 'Ata ou Procuração'].map(type => {
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">9. Documentos Anexos</h3>
+              <p className="text-xs text-slate-500">Formato PDF (máx. 2MB por arquivo). Certidões e atos societários.</p>
+            </div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">{formData.attachments.length} arquivos</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin">
+            {attachmentTypes.map(type => {
               const hasFile = formData.attachments.some(a => a.type === type);
               return (
-                <div key={type} className={`p-4 border rounded-2xl flex items-center justify-between ${hasFile ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
-                  <span className={`text-sm font-bold ${hasFile ? 'text-emerald-700' : 'text-slate-700'}`}>{type}</span>
-                  <label className="p-2 bg-slate-100 rounded-xl cursor-pointer hover:bg-slate-200">
-                    <Upload size={16} /><input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
-                  </label>
+                <div key={type} className={`p-4 border rounded-2xl flex flex-col justify-between h-32 transition-all ${hasFile ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-100' : 'bg-white border-slate-100 hover:border-primary-300 shadow-sm'}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className={`text-[10px] font-black uppercase tracking-tighter leading-tight ${hasFile ? 'text-emerald-700' : 'text-slate-500'}`}>{type}</span>
+                    {hasFile && <Check className="text-emerald-500 shrink-0" size={14} />}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                      {hasFile ? formData.attachments.find(a => a.type === type)?.name : 'Nenhum arquivo'}
+                    </span>
+                    <label className={`p-2 rounded-xl cursor-pointer transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                      <Upload size={14} />
+                      <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
+                    </label>
+                  </div>
                 </div>
               );
             })}
@@ -388,13 +431,13 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
              <div className="flex items-center gap-4 p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100">
                <FileCheck size={32} />
                <div>
-                  <p className="font-black">Pronto para Gerar</p>
-                  <p className="text-xs">Ao finalizar, os dados serão salvos no sistema e o PDF consolidado será baixado.</p>
+                  <p className="font-black">Pronto para Salvar e Baixar</p>
+                  <p className="text-xs">Ao finalizar, os dados serão salvos no banco de dados e o PDF será gerado automaticamente.</p>
                </div>
              </div>
              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Fornecedor</p><p className="font-bold">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'N/A'}</p></div>
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Valor</p><p className="font-bold text-emerald-600">R$ {formData.value.toLocaleString('pt-BR')}</p></div>
+                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Fornecedor Selecionado</p><p className="font-bold">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'Não selecionado'}</p></div>
+                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Valor Estimado</p><p className="font-bold text-emerald-600">R$ {formData.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p></div>
              </div>
           </div>
         </div>
@@ -403,10 +446,12 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
+  const selectedUnit = units.find(u => u.id === formData.unitId);
+
   return (
     <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 flex flex-col h-[90vh] w-full max-w-5xl mx-auto overflow-hidden animate-in zoom-in-95">
       <div className="px-10 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
-        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Fluxo de Solicitação</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil</p></div>
+        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Solicitação de Contrato</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil</p></div>
         <button onClick={onCancel} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><X size={28} /></button>
       </div>
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex overflow-x-auto gap-8 no-scrollbar scroll-smooth">
@@ -423,7 +468,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       <div className="px-10 py-6 border-t border-gray-100 bg-white flex justify-between items-center">
         <div className="flex gap-2">
           <button onClick={handleBack} disabled={currentStep === 0} className="px-6 py-3 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-400 disabled:opacity-30 flex items-center gap-2 hover:bg-gray-50 transition-all"><ChevronLeft size={18}/> Voltar</button>
-          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-6 py-3 rounded-2xl border-2 border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2 hover:bg-emerald-50 transition-all disabled:opacity-30">{isDraftSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Rascunho</button>
+          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-6 py-3 rounded-2xl border-2 border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2 hover:bg-emerald-50 transition-all disabled:opacity-30">{isDraftSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Salvar Rascunho</button>
         </div>
         {currentStep === steps.length - 1 ? (
           <button onClick={handleFinish} disabled={isSaving} className="px-10 py-3 bg-primary-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary-100 flex items-center gap-2 hover:bg-primary-700 transition-all">
