@@ -38,13 +38,13 @@ const checklistItems = [
 ];
 
 const attachmentTypes = [
-  'Contrato Social / Estatuto Social Consolidado',
-  'Ata de Eleição / Procuração',
-  'Certidão Negativa Federal',
-  'Certidão Negativa Estadual',
-  'Certidão Negativa Municipal',
-  'Certidão Negativa Trabalhista (CNDT)',
-  'Certidão de Regularidade FGTS (CRF)',
+  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Federal',
+  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Estadual',
+  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Municipal',
+  'Certidão negativa de débitos trabalhistas',
+  'Certidão de Regularidade de FGTS',
+  'Última alteração do Contrato/Estatuto Social consolidado ou atos societários atualizados',
+  'Ata de Eleição de Diretoria e/ou Procuração Pública/Privada com poderes para assinatura de Contratos',
   'Relatório Serasa',
   'Orçamento Detalhado'
 ];
@@ -148,6 +148,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
+  // Fix: Added missing handleUnitSelection function to update unitId and serviceLocation.
   const handleUnitSelection = (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
     setFormData(prev => ({
@@ -190,7 +191,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       if (onSave) {
         const success = await onSave(formData, formData.supplierId, formData.value);
         if (success) {
-           alert("Rascunho salvo com sucesso!");
+           alert("Solicitação salva como rascunho. Você pode editá-la na lista de contratos.");
            onCancel();
         }
       }
@@ -222,17 +223,19 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         if (pdfSuccess) {
           onCancel();
         } else {
-           alert("Dados salvos no sistema, mas houve um erro ao processar o arquivo PDF. Você pode baixar novamente na lista de contratos.");
+           alert("Contrato salvo, mas houve um erro ao gerar o PDF. Você pode tentar baixar novamente na lista de contratos.");
            onCancel();
         }
       }
     } catch (error: any) {
       console.error("Erro no fluxo de finalização:", error);
-      alert(`Falha ao concluir: ${error.message || 'Erro desconhecido'}`);
+      alert(`Erro ao salvar contrato: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
+
+  const selectedUnit = units.find(u => u.id === formData.unitId);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -269,14 +272,13 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                </div>
             </div>
             {selectedUnit && (
-              <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in fade-in slide-in-from-top-2">
+              <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 mb-2">
-                  <Info size={14} /> Dados da Unidade Vinculada
+                  <Info size={14} /> Dados da Unidade
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-gray-700"><Building size={14} className="text-emerald-500" /><span className="font-bold">{selectedUnit.name}</span></div>
-                  <div className="flex items-center gap-2 text-gray-500"><FileText size={14} className="text-emerald-500" /><span>CNPJ: {selectedUnit.cnpj} {selectedUnit.ie ? `| IE: ${selectedUnit.ie}` : ''}</span></div>
-                  <div className="md:col-span-2 flex items-start gap-2 text-gray-500 mt-1"><MapPin size={14} className="text-emerald-500 mt-1 shrink-0" /><span className="leading-tight">{selectedUnit.address}</span></div>
+                <div className="text-sm">
+                  <p className="font-bold text-gray-700">{selectedUnit.name}</p>
+                  <p className="text-gray-500">CNPJ: {selectedUnit.cnpj} | Endereço: {selectedUnit.address}</p>
                 </div>
               </div>
             )}
@@ -285,107 +287,86 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       );
       case 1: return (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">2. Documentação e Compliance</h3>
+          <h3 className="text-lg font-bold text-gray-800">2. Documentação Legal</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
               <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSocialContract} onChange={e => handleChange('docSocialContract', e.target.checked)} />
-              <span className="text-sm font-medium text-gray-700">Contrato Social</span>
+              <span className="text-sm font-medium text-gray-700">Possui Contrato Social?</span>
             </label>
             <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
               <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSerasa} onChange={e => handleChange('docSerasa', e.target.checked)} />
-              <span className="text-sm font-medium text-gray-700">Pesquisas Serasa/Certidões</span>
+              <span className="text-sm font-medium text-gray-700">Possui Pesquisas Serasa/Certidões?</span>
             </label>
           </div>
         </div>
       );
       case 2: return (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">3. Escopo Técnico</h3>
-          <div className="space-y-4">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Objeto do Fornecimento</label><textarea rows={2} className="w-full p-2 border border-gray-300 rounded-md" value={formData.objectDescription} onChange={e => handleChange('objectDescription', e.target.value)} /></div>
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Detalhada do Escopo</label><textarea rows={8} className="w-full p-2 border border-gray-300 rounded-md" value={formData.scopeDescription} onChange={e => handleChange('scopeDescription', e.target.value)} /></div>
-          </div>
+          <h3 className="text-lg font-bold text-gray-800">3. Escopo</h3>
+          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Objeto</label><input className="w-full p-2 border rounded" value={formData.objectDescription} onChange={e => handleChange('objectDescription', e.target.value)} /></div>
+          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Detalhada</label><textarea rows={6} className="w-full p-2 border rounded" value={formData.scopeDescription} onChange={e => handleChange('scopeDescription', e.target.value)} /></div>
         </div>
       );
       case 3: return (
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">4. Equipe e Responsáveis</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável Técnico (ART/RRT)</label><input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} /></div>
-              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">CPF Responsável Técnico</label><input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} /></div>
-            </div>
-            <div className="space-y-3">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assinantes do Contrato (Prepostos)</label>
-              {formData.prepostos.map((pre, idx) => (
-                <div key={idx} className="p-4 border rounded-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative bg-gray-50 shadow-sm">
-                    <div><input placeholder="Nome" className="w-full p-2 border rounded text-xs bg-white" value={pre.name} onChange={e => { const n = [...formData.prepostos]; n[idx].name = e.target.value; handleChange('prepostos', n); }} /></div>
-                    <div><input placeholder="Cargo" className="w-full p-2 border rounded text-xs bg-white" value={pre.role} onChange={e => { const n = [...formData.prepostos]; n[idx].role = e.target.value; handleChange('prepostos', n); }} /></div>
-                    <div><input placeholder="CPF" className="w-full p-2 border rounded text-xs bg-white" value={pre.cpf} onChange={e => { const n = [...formData.prepostos]; n[idx].cpf = e.target.value; handleChange('prepostos', n); }} /></div>
-                    <div><input placeholder="E-mail" className="w-full p-2 border rounded text-xs bg-white" value={pre.email} onChange={e => { const n = [...formData.prepostos]; n[idx].email = e.target.value; handleChange('prepostos', n); }} /></div>
-                    {formData.prepostos.length > 1 && (<button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-white text-red-500 border rounded-full p-1"><X size={14}/></button>)}
-                </div>
-              ))}
-              <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 p-2"><Plus size={16}/> Adicionar Assinante</button>
-            </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">4. Equipe</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-xs font-bold text-gray-500 uppercase">Resp. Técnico</label><input className="w-full p-2 border rounded" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} /></div>
+            <div><label className="block text-xs font-bold text-gray-500 uppercase">CPF Resp. Técnico</label><input className="w-full p-2 border rounded" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} /></div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assinantes (Prepostos)</label>
+            {formData.prepostos.map((p, i) => (
+              <div key={i} className="flex gap-2 mb-2 p-2 border rounded bg-gray-50">
+                <input placeholder="Nome" className="flex-1 p-1 text-xs" value={p.name} onChange={e => { const n = [...formData.prepostos]; n[i].name = e.target.value; handleChange('prepostos', n); }} />
+                <input placeholder="CPF" className="w-32 p-1 text-xs" value={p.cpf} onChange={e => { const n = [...formData.prepostos]; n[i].cpf = e.target.value; handleChange('prepostos', n); }} />
+                <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, idx) => idx !== i))} className="text-red-500"><X size={14}/></button>
+              </div>
+            ))}
+            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="text-xs text-blue-600 flex items-center gap-1 mt-2"><Plus size={14}/> Adicionar Assinante</button>
           </div>
         </div>
       );
       case 4: return (
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">5. Recursos e Materiais</h3>
-          <div className="space-y-4">
-             {[
-               { field: 'hasMaterials', label: 'Materiais' },
-               { field: 'hasRental', label: 'Locação/Equipamentos' },
-               { field: 'hasComodato', label: 'Comodato' }
-             ].map((item) => (
-                <div key={item.field} className="p-4 border rounded-xl bg-white shadow-sm space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" className="h-5 w-5 accent-primary-600" checked={(formData as any)[item.field]} onChange={e => handleChange(item.field as any, e.target.checked)} /> 
-                    <span className="font-bold text-gray-700">Inclui {item.label}?</span>
-                  </label>
-                  {(formData as any)[item.field] && (
-                    <textarea 
-                      placeholder={`Descreva os ${item.label.toLowerCase()} envolvidos...`}
-                      rows={3} 
-                      className="w-full p-3 border rounded-xl text-sm" 
-                      value={(formData as any)[item.field.replace('has', '').toLowerCase() + 'List']} 
-                      onChange={e => handleChange(item.field.replace('has', '').toLowerCase() + 'List' as any, e.target.value)} 
-                    />
-                  )}
-                </div>
-             ))}
-          </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">5. Recursos</h3>
+          {['Materials', 'Rental', 'Comodato'].map(type => (
+            <div key={type} className="p-3 border rounded-lg">
+              <label className="flex items-center gap-2 mb-2 font-bold text-sm">
+                <input type="checkbox" checked={(formData as any)[`has${type}`]} onChange={e => handleChange(`has${type}` as any, e.target.checked)} /> Inclui {type}?
+              </label>
+              {(formData as any)[`has${type}`] && <textarea className="w-full p-2 text-sm border rounded" value={(formData as any)[`${type.toLowerCase()}List`]} onChange={e => handleChange(`${type.toLowerCase()}List` as any, e.target.value)} />}
+            </div>
+          ))}
         </div>
       );
       case 5: return (
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">6. Condições Comerciais</h3>
-          <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">Valor Total Estimado</label><input type="number" className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-xl font-black text-emerald-900" value={formData.value} onChange={e => handleChange('value', parseFloat(e.target.value))}/></div>
-            <div><label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">Vigência</label><div className="flex items-center gap-2"><input type="date" className="flex-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm" value={formData.startDate} onChange={e => handleChange('startDate', e.target.value)}/><input type="date" className="flex-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm" value={formData.endDate} onChange={e => handleChange('endDate', e.target.value)}/></div></div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">6. Financeiro</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-xs font-bold text-gray-500 uppercase">Valor Total (R$)</label><input type="number" className="w-full p-2 border rounded" value={formData.value} onChange={e => handleChange('value', parseFloat(e.target.value))} /></div>
+            <div className="flex gap-2">
+              <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase">Início</label><input type="date" className="w-full p-2 border rounded" value={formData.startDate} onChange={e => handleChange('startDate', e.target.value)} /></div>
+              <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase">Término</label><input type="date" className="w-full p-2 border rounded" value={formData.endDate} onChange={e => handleChange('endDate', e.target.value)} /></div>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-4">
-             <div><label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">Forma de Pagamento</label><input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} /></div>
-             <div><label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 block">CAP / Limite</label><input type="text" className="w-full p-3 border rounded-xl text-sm" value={formData.capLimit} onChange={e => handleChange('capLimit', e.target.value)} /></div>
-          </div>
+          <div><label className="block text-xs font-bold text-gray-500 uppercase">Pagamento</label><input className="w-full p-2 border rounded" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} /></div>
         </div>
       );
       case 6: return (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
-          <textarea rows={6} className="w-full p-3 border border-red-100 bg-red-50/20 rounded-xl text-sm" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Descreva aqui pontos de atenção, urgências ou riscos críticos identificados..."/>
+          <textarea rows={6} className="w-full p-3 border rounded text-sm bg-red-50/10" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Descreva os riscos identificados..."/>
         </div>
       );
       case 7: return (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">8. Checklist de Documentos Obrigatórios</h3>
+          <h3 className="text-lg font-bold text-gray-800">8. Doc. Obrigatórios</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {checklistItems.map(item => (
-              <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                 <input type="checkbox" className="h-5 w-5 text-primary-600" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
-                <span className="text-sm text-gray-600 font-medium">{item.label}</span>
+                <span className="text-sm font-medium">{item.label}</span>
               </label>
             ))}
           </div>
@@ -395,25 +376,25 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-bold text-gray-800">9. Documentos Anexos</h3>
-              <p className="text-xs text-slate-500">Formato PDF (máx. 2MB por arquivo). Certidões e atos societários.</p>
+              <h3 className="text-lg font-bold text-gray-800">9. Anexos</h3>
+              <p className="text-xs text-slate-500">Envio opcional de certidões e documentos em PDF (máx. 2MB).</p>
             </div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">{formData.attachments.length} arquivos</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin">
             {attachmentTypes.map(type => {
               const hasFile = formData.attachments.some(a => a.type === type);
               return (
-                <div key={type} className={`p-4 border rounded-2xl flex flex-col justify-between h-32 transition-all ${hasFile ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-100' : 'bg-white border-slate-100 hover:border-primary-300 shadow-sm'}`}>
+                <div key={type} className={`p-4 border rounded-2xl flex flex-col justify-between h-40 transition-all ${hasFile ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex justify-between items-start gap-2">
                     <span className={`text-[10px] font-black uppercase tracking-tighter leading-tight ${hasFile ? 'text-emerald-700' : 'text-slate-500'}`}>{type}</span>
                     {hasFile && <Check className="text-emerald-500 shrink-0" size={14} />}
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                    <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
                       {hasFile ? formData.attachments.find(a => a.type === type)?.name : 'Nenhum arquivo'}
                     </span>
-                    <label className={`p-2 rounded-xl cursor-pointer transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                    <label className={`p-2 rounded-xl cursor-pointer ${hasFile ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       <Upload size={14} />
                       <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
                     </label>
@@ -426,18 +407,18 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       );
       case 9: return (
         <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">10. Revisão e Finalização</h3>
+          <h3 className="text-lg font-bold text-gray-800">10. Revisão Final</h3>
           <div className="bg-white p-8 border rounded-[2rem] shadow-sm text-sm space-y-6">
              <div className="flex items-center gap-4 p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100">
                <FileCheck size={32} />
                <div>
-                  <p className="font-black">Pronto para Salvar e Baixar</p>
-                  <p className="text-xs">Ao finalizar, os dados serão salvos no banco de dados e o PDF será gerado automaticamente.</p>
+                  <p className="font-black">Pronto para Finalizar</p>
+                  <p className="text-xs text-emerald-600">Ao clicar em Finalizar, o contrato será salvo no banco e o download do PDF será iniciado.</p>
                </div>
              </div>
              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Fornecedor Selecionado</p><p className="font-bold">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'Não selecionado'}</p></div>
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Valor Estimado</p><p className="font-bold text-emerald-600">R$ {formData.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p></div>
+                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Fornecedor</p><p className="font-bold">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'N/A'}</p></div>
+                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Total</p><p className="font-bold text-emerald-600">R$ {formData.value.toLocaleString('pt-BR')}</p></div>
              </div>
           </div>
         </div>
@@ -446,12 +427,10 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
-  const selectedUnit = units.find(u => u.id === formData.unitId);
-
   return (
     <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 flex flex-col h-[90vh] w-full max-w-5xl mx-auto overflow-hidden animate-in zoom-in-95">
       <div className="px-10 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
-        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Solicitação de Contrato</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil</p></div>
+        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Wizard de Contrato</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil</p></div>
         <button onClick={onCancel} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><X size={28} /></button>
       </div>
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex overflow-x-auto gap-8 no-scrollbar scroll-smooth">
@@ -472,7 +451,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
         {currentStep === steps.length - 1 ? (
           <button onClick={handleFinish} disabled={isSaving} className="px-10 py-3 bg-primary-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary-100 flex items-center gap-2 hover:bg-primary-700 transition-all">
-            {isSaving ? <><Loader2 size={18} className="animate-spin"/> Salvando e Gerando...</> : <><FileText size={18}/> Finalizar e Baixar PDF</>}
+            {isSaving ? <><Loader2 size={18} className="animate-spin"/> Salvando...</> : <><FileText size={18}/> Finalizar e Baixar</>}
           </button>
         ) : (
           <button onClick={handleNext} className="px-10 py-3 bg-gray-900 text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-black transition-all">Próximo <ChevronRight size={18}/></button>

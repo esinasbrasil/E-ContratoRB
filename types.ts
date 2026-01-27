@@ -13,6 +13,7 @@ export interface ServiceCategory {
 
 export interface Supplier {
   id: string;
+  user_id?: string;
   name: string;
   cnpj: string;
   address: string;
@@ -24,6 +25,7 @@ export interface Supplier {
 
 export interface Unit {
   id: string;
+  user_id?: string;
   name: string;
   address: string;
   cnpj: string;
@@ -47,6 +49,7 @@ export interface ProjectAttachment {
 
 export interface Project {
   id: string;
+  user_id?: string;
   name: string;
   unitId: string;
   costCenter: string;
@@ -82,7 +85,7 @@ export interface ContractAttachment {
 export interface ContractRequestData {
   supplierId: string;
   projectId: string;
-  unitId?: string; // Novo campo para vínculo direto com a unidade
+  unitId?: string;
   orderNumber?: string;
   
   supplierBranches: string;
@@ -147,6 +150,7 @@ export interface ContractRequestData {
 
 export interface Contract {
   id: string;
+  user_id?: string;
   projectId: string;
   supplierId: string;
   value: number;

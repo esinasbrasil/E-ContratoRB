@@ -100,40 +100,61 @@ const App: React.FC = () => {
     setSession(null);
   };
 
-  const saveAction = async (table: string, data: any, storageMethod: (item: any) => void) => {
+  const saveAction = async (table: string, data: any, storageMethod: (item: any) => void): Promise<boolean> => {
     setLoading(true);
     try {
       if (isDemo) {
         try {
           storageMethod(data);
+          await fetchData();
+          return true;
         } catch (storageErr: any) {
           if (storageErr.name === 'QuotaExceededError') {
-            alert("ERRO DE ARMAZENAMENTO: O limite do navegador foi excedido. Remova alguns anexos pesados (PDFs) para conseguir salvar.");
+            alert("ERRO: Memória cheia. Remova arquivos PDF muito grandes.");
             return false;
           }
           throw storageErr;
         }
       } else {
-        const { error } = await supabase.from(table).upsert(data);
+        const dataWithUser = { ...data };
+        if (session?.user?.id) {
+          dataWithUser.user_id = session.user.id;
+        }
+
+        const { error } = await supabase.from(table).upsert(dataWithUser);
+        
         if (error) {
-          console.error(`Erro no Supabase (${table}):`, error);
-          if (error.code === '413' || error.message.includes('too large')) {
-             alert("ERRO: O arquivo é muito grande para o banco de dados. Tente anexar PDFs menores ou em menor quantidade.");
+          console.error(`Erro Supabase (${table}):`, error);
+          if (error.message.includes('row-level security policy')) {
+            alert(`ERRO DE PERMISSÃO: O banco de dados Supabase bloqueou a gravação na tabela "${table}".\n\nCOMO CORRIGIR:\n1. Acesse o SQL Editor no Supabase.\n2. Execute: CREATE POLICY "Permitir Tudo" ON ${table} FOR ALL USING (true);`);
           } else {
-             alert(`Erro ao salvar no banco de dados: ${error.message}`);
+            alert(`Erro ao salvar no banco: ${error.message}`);
           }
           return false;
         }
+        await fetchData();
+        return true;
       }
-      await fetchData();
-      return true;
     } catch (err: any) {
-      console.error(err);
-      alert(`Falha crítica ao salvar: ${err.message || 'Verifique sua conexão.'}`);
+      alert(`Falha ao salvar: ${err.message}`);
       return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
+     const contractId = editingContract?.id || crypto.randomUUID();
+     const newContract: Contract = {
+       id: contractId, 
+       projectId: data.projectId || '', 
+       supplierId, 
+       value, 
+       createdAt: editingContract?.createdAt || new Date().toISOString(), 
+       status: 'Draft', 
+       details: data
+     };
+     return await saveAction('contracts', newContract, storageService.saveContract);
   };
 
   const deleteAction = async (table: string, id: string, storageMethod: (id: string) => void) => {
@@ -150,27 +171,27 @@ const App: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
-     const contractId = editingContract?.id || crypto.randomUUID();
-     const newContract: any = {
-       id: contractId, projectId: data.projectId, supplierId, value, 
-       createdAt: editingContract?.createdAt || new Date().toISOString(), status: 'Draft', details: data
-     };
-     return await saveAction('contracts', newContract, storageService.saveContract);
-  };
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <Loader2 className="text-emerald-500 animate-spin" size={48} />
+      </div>
+    );
+  }
 
-  // Added missing handleSaveSettings function to resolve the error
-  const handleSaveSettings = async (settings: CompanySettings) => {
-    return await saveAction('company_settings', settings, storageService.saveSettings);
-  };
+  if (!session) {
+    return <LoginPage onDemoLogin={() => setSession({ user: { id: 'demo' } })} />;
+  }
 
   return (
     <>
       {currentModule === 'home' && <LandingPage onSelectModule={setCurrentModule} />}
       {currentModule === 'engineering' && (
         <EngineeringModule 
-          projects={projects} units={units} onAddProject={p => saveAction('projects', p, storageService.saveProject)}
-          onUpdateProject={p => saveAction('projects', p, storageService.saveProject)} onBack={() => setCurrentModule('home')}
+          projects={projects} units={units} 
+          onAddProject={p => saveAction('projects', p, storageService.saveProject)}
+          onUpdateProject={p => saveAction('projects', p, storageService.saveProject)} 
+          onBack={() => setCurrentModule('home')}
         />
       )}
       {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
@@ -200,9 +221,12 @@ const App: React.FC = () => {
             {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
             {activeTab === 'suppliers' && (
               <SupplierManager 
-                suppliers={suppliers} serviceCategories={serviceCategories} onAdd={s => saveAction('suppliers', s, storageService.saveSupplier)} 
-                onUpdate={s => saveAction('suppliers', s, storageService.saveSupplier)} onDelete={id => deleteAction('suppliers', id, storageService.deleteSupplier)}
-                onOpenContractWizard={setContractWizardSupplierId} onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
+                suppliers={suppliers} serviceCategories={serviceCategories} 
+                onAdd={s => saveAction('suppliers', s, storageService.saveSupplier)} 
+                onUpdate={s => saveAction('suppliers', s, storageService.saveSupplier)} 
+                onDelete={id => deleteAction('suppliers', id, storageService.deleteSupplier)}
+                onOpenContractWizard={setContractWizardSupplierId} 
+                onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
                 analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
               />
             )}
@@ -210,7 +234,7 @@ const App: React.FC = () => {
             {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u, storageService.saveUnit)} onUpdate={u => saveAction('units', u, storageService.saveUnit)} onDelete={id => deleteAction('units', id, storageService.deleteUnit)} />}
             {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id, storageService.deleteContract)} />}
             {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c, storageService.saveService)} onDelete={id => deleteAction('service_categories', id, storageService.deleteService)} />}
-            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={handleSaveSettings} onReset={() => { storageService.resetDatabase(); fetchData(); }} onSeed={() => {}} />}
+            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s, storageService.saveSettings)} onReset={() => { storageService.resetDatabase(); fetchData(); }} onSeed={() => {}} />}
           </Layout>
         </>
       )}

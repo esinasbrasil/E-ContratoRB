@@ -144,133 +144,61 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setTextColor(100, 100, 100);
   
   const cnpjText = unit?.cnpj ? `CNPJ: ${unit.cnpj}` : "CNPJ: -";
-  const ieText = unit?.ie ? ` | IE: ${unit.ie}` : "";
-  doc.text(`${cnpjText}${ieText}`, margin, currentY);
-  currentY += 5;
-  
-  const unitAddr = safeText(unit?.address);
-  const addrLines = doc.splitTextToSize(unitAddr, contentWidth);
-  for (const line of addrLines) {
-    checkPageOverflow(5);
-    doc.text(line, margin, currentY);
-    currentY += 4.5;
-  }
-  currentY += 5;
+  doc.text(`${cnpjText}`, margin, currentY);
+  currentY += 10;
 
   printSection("2. DADOS DO FORNECEDOR");
-  const halfWidth = contentWidth / 2;
-  const col2 = margin + halfWidth;
-
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-  doc.text("RAZÃO SOCIAL", margin, currentY); 
-  doc.text("CNPJ", col2, currentY);
-  currentY += 4.5;
-  
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-  doc.text(safeText(supplier?.name), margin, currentY); 
-  doc.text(safeText(supplier?.cnpj), col2, currentY);
+  doc.text(`RAZÃO: ${safeText(supplier?.name)}`, margin, currentY); 
+  currentY += 5;
+  doc.text(`CNPJ: ${safeText(supplier?.cnpj)}`, margin, currentY);
   currentY += 8;
   
-  printMultiLineText("ENDEREÇO DO FORNECEDOR", supplier?.address || "-");
-  printMultiLineText("TIPO DE SERVIÇO", data.serviceType || supplier?.serviceType || "-");
-  printMultiLineText("FILIAIS DO FORNECEDOR ENVOLVIDAS", data.supplierBranches || "Não aplicável");
+  printMultiLineText("ENDEREÇO", supplier?.address || "-");
 
-  printSection("3. DOCUMENTAÇÃO E COMPLIANCE");
-  doc.setFontSize(9);
-  doc.text(`[ ${data.docSocialContract ? 'X' : ' '} ] Contrato Social`, margin, currentY);
-  doc.text(`[ ${data.docSerasa ? 'X' : ' '} ] Pesquisas Serasa/Certidões`, margin + 60, currentY);
-  currentY += 12;
-
-  printSection("4. ESCOPO TÉCNICO");
+  printSection("3. ESCOPO E OBJETO");
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
-  printMultiLineText("DESCRIÇÃO DETALHADA DO ESCOPO", data.scopeDescription || "-");
+  printMultiLineText("ESCOPO DETALHADO", data.scopeDescription || "-");
 
-  printSection("5. EQUIPE E RESPONSÁVEIS");
-  const techRespFull = data.technicalResponsibleCpf !== "-" ? `${data.technicalResponsible} (CPF: ${data.technicalResponsibleCpf})` : data.technicalResponsible;
-  printMultiLineText("RESPONSÁVEL TÉCNICO (ART/RRT)", techRespFull);
-  
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-  doc.text("ASSINANTES DO CONTRATO (PREPOSTOS)", margin, currentY);
-  currentY += 5;
-  
-  (data.prepostos || []).forEach(p => {
-    checkPageOverflow(20);
-    doc.setFillColor(248, 250, 252);
-    doc.rect(margin, currentY, contentWidth, 16, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.rect(margin, currentY, contentWidth, 16, 'S');
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
-    doc.text(safeText(p.name).toUpperCase(), margin + 3, currentY + 5);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-    doc.text(`${safeText(p.role)} • CPF: ${safeText(p.cpf)}`, margin + 3, currentY + 9);
-    doc.text(`${safeText(p.email)}`, margin + 3, currentY + 13);
-    currentY += 20;
+  printSection("4. CONDIÇÕES COMERCIAIS");
+  checkPageOverflow(25);
+  doc.setFillColor(240, 253, 244);
+  doc.rect(margin, currentY, contentWidth, 15, 'F');
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(6, 78, 59);
+  doc.text(`VALOR TOTAL: R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 5, currentY + 10);
+  currentY += 20;
+
+  printSection("5. DOCUMENTOS OBRIGATÓRIOS (CHECKLIST)");
+  doc.setFontSize(9);
+  const checks = [
+    { label: "Acordo Comercial", val: data.docCheckCommercial },
+    { label: "Pedido de Compra (PO)", val: data.docCheckPO },
+    { label: "Termo de Compliance", val: data.docCheckCompliance },
+    { label: "Aceite do Fornecedor", val: data.docCheckSupplierAcceptance },
+    { label: "Registro no Sistema", val: data.docCheckSystemRegistration },
+    { label: "Relatório Fornecedor", val: data.docCheckSupplierReport },
+  ];
+  checks.forEach(c => {
+    checkPageOverflow(5);
+    doc.text(`[ ${c.val ? 'X' : ' '} ] ${c.label}`, margin, currentY);
+    currentY += 5;
   });
 
-  printSection("6. RECURSOS E MATERIAIS");
-  const rListItems = [];
-  if (data.hasMaterials) rListItems.push(`MATERIAIS: ${safeText(data.materialsList)}`);
-  if (data.hasRental) rListItems.push(`LOCAÇÃO/EQUIPAMENTOS: ${safeText(data.rentalList)}`);
-  if (data.hasComodato) rListItems.push(`COMODATO: ${safeText(data.comodatoList)}`);
-  printMultiLineText("RECURSOS ENVOLVIDOS", rListItems.length > 0 ? rListItems.join("\n\n") : "Não aplicável");
-
-  printSection("7. CONDIÇÕES COMERCIAIS");
-  checkPageOverflow(25);
-  doc.setDrawColor(6, 78, 59);
-  doc.setFillColor(240, 253, 244);
-  doc.roundedRect(margin, currentY, contentWidth, 20, 2, 2, 'FD');
-  
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(6, 78, 59);
-  doc.text("VALOR TOTAL ESTIMADO", margin + 5, currentY + 6);
-  doc.setFontSize(14);
-  const fValue = typeof data.value === 'number' ? data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : "0,00";
-  doc.text(`R$ ${fValue}`, margin + 5, currentY + 14);
-  doc.text("Vigência:", margin + (contentWidth / 2), currentY + 6);
-  doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0); doc.setFontSize(8);
-  doc.text(`${safeText(data.startDate)} até ${safeText(data.endDate)}`, margin + (contentWidth / 2), currentY + 14);
-  currentY += 28;
-
-  printMultiLineText("FORMA DE PAGAMENTO", data.paymentTerms || "-");
-  printMultiLineText("CRONOGRAMA DE FATURAMENTO", data.scheduleSteps || "-");
-  
-  checkPageOverflow(15);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-  doc.text("CAP / LIMITE", margin, currentY); 
-  doc.text("ÍNDICE DE REAJUSTE", margin + (contentWidth / 2), currentY);
+  printSection("6. ANEXOS (CERTIDÕES E ATOS)");
   currentY += 5;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-  doc.text(safeText(data.capLimit), margin, currentY); 
-  doc.text(safeText(data.correctionIndex), margin + (contentWidth / 2), currentY);
-  currentY += 10;
-  
-  printMultiLineText("GARANTIAS", data.warranties || "-");
-
-  printSection("8. ANÁLISE DE RISCOS");
-  printMultiLineText("Pontos de Atenção / Riscos", data.urgenciesRisks || "Nenhum risco crítico identificado.", 9, true);
-
-  printSection("9. DOCUMENTOS ANEXOS");
-  checkPageOverflow(20);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("Documentos Contratuais e Cadastrais:", margin, currentY);
-  currentY += 6;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
   if (!data.attachments || data.attachments.length === 0) {
-    doc.text("• Nenhum anexo fornecido.", margin + 5, currentY);
+    doc.text("Nenhum arquivo anexo.", margin, currentY);
   } else {
     data.attachments.forEach(att => { 
       checkPageOverflow(5); 
-      doc.text(`• ${safeText(att.type)}: ${safeText(att.name)}`, margin + 5, currentY); 
+      doc.text(`• ${safeText(att.type)}: ${safeText(att.name)}`, margin, currentY); 
       currentY += 5; 
     });
   }
 
-  currentY = Math.max(currentY, pageHeight - 45);
-  doc.setDrawColor(200, 200, 200);
-  doc.line(margin, currentY, margin + 80, currentY); 
-  doc.line(pageWidth - margin - 80, currentY, pageWidth - margin, currentY);
-  doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-  doc.text("Solicitante / Gestor do Contrato", margin + 40, currentY + 4, { align: "center" });
-  doc.text("Aprovação Diretoria / Jurídico", pageWidth - margin - 40, currentY + 4, { align: "center" });
+  currentY = Math.max(currentY, pageHeight - 40);
+  doc.line(margin, currentY, margin + 70, currentY);
+  doc.text("Assinatura Solicitante", margin + 35, currentY + 5, { align: "center" });
 
   drawFooter();
   return doc.output('blob');
@@ -294,15 +222,10 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
                  const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
                  for (const page of copiedPages) {
-                   const { width, height } = page.getSize();
-                   const [a4Width, a4Height] = PageSizes.A4;
-                   if (Math.abs(width - a4Width) > 50 || Math.abs(height - a4Height) > 50) {
-                     page.scale(Math.min(a4Width / width, a4Height / height));
-                   }
                    mergedPdf.addPage(page);
                  }
                }
-           } catch (err) { console.warn(`Anexo "${attachment.name}" ignorado:`, err); }
+           } catch (err) { console.warn(`Falha ao anexar PDF: ${attachment.name}`); }
        }
     }
 
@@ -312,15 +235,13 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Checklist_${safeText(supplier?.name).replace(/[^a-zA-Z0-9]/g, '') || 'Contrato'}.pdf`;
+    link.download = `Contrato_${safeText(supplier?.name).replace(/\s/g, '_')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     return true;
-  } catch (error: any) {
-    console.error("Erro na mesclagem do PDF:", error);
-    alert(`Erro ao gerar PDF: ${error.message || 'Arquivo corrompido ou muito grande.'}`);
+  } catch (error) {
+    console.error(error);
     return false;
   }
 };
