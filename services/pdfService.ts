@@ -160,7 +160,23 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("ESCOPO DETALHADO", data.scopeDescription || "-");
 
-  printSection("4. CONDIÇÕES COMERCIAIS");
+  printSection("4. EQUIPE E ASSINANTES");
+  if (data.prepostos && data.prepostos.length > 0) {
+    data.prepostos.forEach((p, idx) => {
+      checkPageOverflow(15);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+      doc.text(`ASSINANTE ${idx + 1}: ${safeText(p.name)}`, margin, currentY);
+      currentY += 5;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+      doc.text(`CPF: ${safeText(p.cpf)} | E-mail: ${safeText(p.email)}`, margin, currentY);
+      currentY += 7;
+    });
+  } else {
+    doc.text("Nenhum assinante informado.", margin, currentY);
+    currentY += 7;
+  }
+
+  printSection("5. CONDIÇÕES COMERCIAIS");
   checkPageOverflow(25);
   doc.setFillColor(240, 253, 244);
   doc.rect(margin, currentY, contentWidth, 15, 'F');
@@ -168,7 +184,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text(`VALOR TOTAL: R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 5, currentY + 10);
   currentY += 20;
 
-  printSection("5. DOCUMENTOS OBRIGATÓRIOS (CHECKLIST)");
+  printSection("6. DOCUMENTOS OBRIGATÓRIOS (CHECKLIST)");
   doc.setFontSize(9);
   const checks = [
     { label: "Acordo Comercial", val: data.docCheckCommercial },
@@ -184,21 +200,39 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 5;
   });
 
-  printSection("6. ANEXOS (CERTIDÕES E ATOS)");
+  printSection("9. DOCUMENTOS ANEXOS");
   currentY += 5;
-  if (!data.attachments || data.attachments.length === 0) {
-    doc.text("Nenhum arquivo anexo.", margin, currentY);
-  } else {
-    data.attachments.forEach(att => { 
-      checkPageOverflow(5); 
-      doc.text(`• ${safeText(att.type)}: ${safeText(att.name)}`, margin, currentY); 
-      currentY += 5; 
-    });
-  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Documentos Contratuais e Cadastrais:", margin, currentY);
+  currentY += 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  
+  const attachmentTypes = [
+    'Pedido de Compra',
+    'Contrato Social (Alteração Contratual Assinada)',
+    'CND Federal (Certidão Federal)',
+    'CND Estadual (Certidão Estadual)',
+    'CND Municipal (Certidão Municipal)',
+    'CND Trabalhista (Certidão Trabalhista)',
+    'Certidão FGTS (Certidão FGTS)',
+    'Ata ou Procuração (Certidão Simplificada)',
+    'Orçamento (Proposta Detalhada)',
+    'Relatório Serasa'
+  ];
 
-  currentY = Math.max(currentY, pageHeight - 40);
+  attachmentTypes.forEach(type => {
+    const att = data.attachments.find(a => a.type === type);
+    checkPageOverflow(6);
+    doc.text(`  - ${type}: ${att ? safeText(att.name) : 'Não anexado'}`, margin, currentY);
+    currentY += 5.5;
+  });
+
+  currentY = Math.max(currentY + 10, pageHeight - 45);
   doc.line(margin, currentY, margin + 70, currentY);
-  doc.text("Assinatura Solicitante", margin + 35, currentY + 5, { align: "center" });
+  doc.setFontSize(8);
+  doc.text("Assinatura Solicitante / Gestor", margin + 35, currentY + 5, { align: "center" });
 
   drawFooter();
   return doc.output('blob');
@@ -235,7 +269,7 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Contrato_${safeText(supplier?.name).replace(/\s/g, '_')}.pdf`;
+    link.download = `Checklist_Contrato_${safeText(supplier?.name).replace(/\s/g, '_')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

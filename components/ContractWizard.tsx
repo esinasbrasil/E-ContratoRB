@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractWizardProps {
@@ -38,15 +38,16 @@ const checklistItems = [
 ];
 
 const attachmentTypes = [
-  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Federal',
-  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Estadual',
-  'Certidão negativa de débitos ou Positiva com Efeitos de Negativa no âmbito Municipal',
-  'Certidão negativa de débitos trabalhistas',
-  'Certidão de Regularidade de FGTS',
-  'Última alteração do Contrato/Estatuto Social consolidado ou atos societários atualizados',
-  'Ata de Eleição de Diretoria e/ou Procuração Pública/Privada com poderes para assinatura de Contratos',
-  'Relatório Serasa',
-  'Orçamento Detalhado'
+  'Pedido de Compra',
+  'Contrato Social (Alteração Contratual Assinada)',
+  'CND Federal (Certidão Federal)',
+  'CND Estadual (Certidão Estadual)',
+  'CND Municipal (Certidão Municipal)',
+  'CND Trabalhista (Certidão Trabalhista)',
+  'Certidão FGTS (Certidão FGTS)',
+  'Ata ou Procuração (Certidão Simplificada)',
+  'Orçamento (Proposta Detalhada)',
+  'Relatório Serasa'
 ];
 
 const ContractWizard: React.FC<ContractWizardProps> = ({ 
@@ -148,7 +149,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     }
   };
 
-  // Fix: Added missing handleUnitSelection function to update unitId and serviceLocation.
   const handleUnitSelection = (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
     setFormData(prev => ({
@@ -191,7 +191,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       if (onSave) {
         const success = await onSave(formData, formData.supplierId, formData.value);
         if (success) {
-           alert("Solicitação salva como rascunho. Você pode editá-la na lista de contratos.");
+           alert("Solicitação salva com sucesso!");
            onCancel();
         }
       }
@@ -223,7 +223,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         if (pdfSuccess) {
           onCancel();
         } else {
-           alert("Contrato salvo, mas houve um erro ao gerar o PDF. Você pode tentar baixar novamente na lista de contratos.");
+           alert("Contrato salvo no banco, mas houve um erro ao baixar o PDF. Tente novamente na lista de contratos.");
            onCancel();
         }
       }
@@ -243,13 +243,13 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4">
             <label className="block text-sm font-medium text-gray-700">Fornecedor / CNPJ</label>
-            <select className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.supplierId} onChange={(e) => handleChange('supplierId', e.target.value)}>
+            <select className="w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-primary-500" value={formData.supplierId} onChange={(e) => handleChange('supplierId', e.target.value)}>
               <option value="">Selecione um fornecedor...</option>
               {suppliers.map(su => <option key={su.id} value={su.id}>{su.name} - {su.cnpj}</option>)}
             </select>
-            <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-lg space-y-4">
+            <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-2xl space-y-4">
               <label className="text-sm font-bold text-blue-800 flex items-center gap-2"><LinkIcon size={16}/> Vincular Projeto de Engenharia</label>
-              <select className="w-full p-2 border border-blue-200 rounded-md shadow-sm" value={formData.projectId} onChange={(e) => handleProjectSelection(e.target.value)}>
+              <select className="w-full p-2 border border-blue-200 rounded-xl shadow-sm" value={formData.projectId} onChange={(e) => handleProjectSelection(e.target.value)}>
                 <option value="">Nenhum projeto selecionado</option>
                 {projects.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
               </select>
@@ -257,12 +257,12 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div>
                   <label className="text-xs font-bold text-gray-500 uppercase">Nº do Pedido</label>
-                  <input type="text" className="w-full p-2 border border-gray-300 rounded-md shadow-sm" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
+                  <input type="text" className="w-full p-3 border border-gray-300 rounded-xl shadow-sm" value={formData.orderNumber || ''} onChange={e => handleChange('orderNumber', e.target.value)} />
                </div>
                <div>
                   <label className="text-xs font-bold text-gray-500 uppercase">Local de Prestação (Unidade)</label>
                   <select 
-                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm" 
+                    className="w-full p-3 border border-gray-300 rounded-xl shadow-sm" 
                     value={formData.unitId} 
                     onChange={e => handleUnitSelection(e.target.value)}
                   >
@@ -271,17 +271,6 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
                   </select>
                </div>
             </div>
-            {selectedUnit && (
-              <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 mb-2">
-                  <Info size={14} /> Dados da Unidade
-                </h4>
-                <div className="text-sm">
-                  <p className="font-bold text-gray-700">{selectedUnit.name}</p>
-                  <p className="text-gray-500">CNPJ: {selectedUnit.cnpj} | Endereço: {selectedUnit.address}</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       );
@@ -289,13 +278,19 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">2. Documentação Legal</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
-              <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSocialContract} onChange={e => handleChange('docSocialContract', e.target.checked)} />
-              <span className="text-sm font-medium text-gray-700">Possui Contrato Social?</span>
+            <label className="flex items-center gap-4 p-5 border-2 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all">
+              <input type="checkbox" className="h-6 w-6 text-primary-600 rounded-lg" checked={formData.docSocialContract} onChange={e => handleChange('docSocialContract', e.target.checked)} />
+              <div>
+                <span className="block text-sm font-bold text-gray-800">Possui Contrato Social?</span>
+                <span className="text-[10px] text-gray-400">Verifique se está assinado e atualizado</span>
+              </div>
             </label>
-            <label className="flex items-center gap-3 p-4 border rounded-xl hover:bg-gray-50 cursor-pointer">
-              <input type="checkbox" className="h-5 w-5 text-primary-600" checked={formData.docSerasa} onChange={e => handleChange('docSerasa', e.target.checked)} />
-              <span className="text-sm font-medium text-gray-700">Possui Pesquisas Serasa/Certidões?</span>
+            <label className="flex items-center gap-4 p-5 border-2 rounded-2xl hover:bg-gray-50 cursor-pointer transition-all">
+              <input type="checkbox" className="h-6 w-6 text-primary-600 rounded-lg" checked={formData.docSerasa} onChange={e => handleChange('docSerasa', e.target.checked)} />
+              <div>
+                <span className="block text-sm font-bold text-gray-800">Possui Pesquisas Serasa?</span>
+                <span className="text-[10px] text-gray-400">Certidões e consultas financeiras</span>
+              </div>
             </label>
           </div>
         </div>
@@ -303,27 +298,36 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       case 2: return (
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">3. Escopo</h3>
-          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Objeto</label><input className="w-full p-2 border rounded" value={formData.objectDescription} onChange={e => handleChange('objectDescription', e.target.value)} /></div>
-          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Detalhada</label><textarea rows={6} className="w-full p-2 border rounded" value={formData.scopeDescription} onChange={e => handleChange('scopeDescription', e.target.value)} /></div>
+          <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Objeto do Fornecimento</label><input className="w-full p-3 border rounded-xl" value={formData.objectDescription} onChange={e => handleChange('objectDescription', e.target.value)} /></div>
+          <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Descrição Detalhada do Escopo</label><textarea rows={6} className="w-full p-3 border rounded-xl" value={formData.scopeDescription} onChange={e => handleChange('scopeDescription', e.target.value)} /></div>
         </div>
       );
       case 3: return (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">4. Equipe</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase">Resp. Técnico</label><input className="w-full p-2 border rounded" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} /></div>
-            <div><label className="block text-xs font-bold text-gray-500 uppercase">CPF Resp. Técnico</label><input className="w-full p-2 border rounded" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} /></div>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-gray-800">4. Equipe (Assinantes)</h3>
+            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="px-4 py-2 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-primary-100"><Plus size={14}/> Adicionar Assinante</button>
           </div>
-          <div className="mt-4">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assinantes (Prepostos)</label>
+          <div className="space-y-4">
             {formData.prepostos.map((p, i) => (
-              <div key={i} className="flex gap-2 mb-2 p-2 border rounded bg-gray-50">
-                <input placeholder="Nome" className="flex-1 p-1 text-xs" value={p.name} onChange={e => { const n = [...formData.prepostos]; n[i].name = e.target.value; handleChange('prepostos', n); }} />
-                <input placeholder="CPF" className="w-32 p-1 text-xs" value={p.cpf} onChange={e => { const n = [...formData.prepostos]; n[i].cpf = e.target.value; handleChange('prepostos', n); }} />
-                <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, idx) => idx !== i))} className="text-red-500"><X size={14}/></button>
+              <div key={i} className="p-6 border-2 border-gray-100 rounded-[2rem] bg-slate-50 relative group transition-all hover:border-primary-200">
+                <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"><X size={20}/></button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><User size={10}/> Nome Completo</label>
+                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.name} onChange={e => { const n = [...formData.prepostos]; n[i].name = e.target.value; handleChange('prepostos', n); }} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><FileText size={10}/> CPF</label>
+                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.cpf} onChange={e => { const n = [...formData.prepostos]; n[i].cpf = e.target.value; handleChange('prepostos', n); }} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><Mail size={10}/> E-mail</label>
+                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.email} onChange={e => { const n = [...formData.prepostos]; n[i].email = e.target.value; handleChange('prepostos', n); }} />
+                  </div>
+                </div>
               </div>
             ))}
-            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="text-xs text-blue-600 flex items-center gap-1 mt-2"><Plus size={14}/> Adicionar Assinante</button>
           </div>
         </div>
       );
@@ -331,42 +335,56 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">5. Recursos</h3>
           {['Materials', 'Rental', 'Comodato'].map(type => (
-            <div key={type} className="p-3 border rounded-lg">
-              <label className="flex items-center gap-2 mb-2 font-bold text-sm">
-                <input type="checkbox" checked={(formData as any)[`has${type}`]} onChange={e => handleChange(`has${type}` as any, e.target.checked)} /> Inclui {type}?
+            <div key={type} className="p-4 border-2 border-gray-50 rounded-2xl bg-white">
+              <label className="flex items-center gap-3 mb-3 font-bold text-sm text-gray-700">
+                <input type="checkbox" className="h-5 w-5 text-primary-600 rounded" checked={(formData as any)[`has${type}`]} onChange={e => handleChange(`has${type}` as any, e.target.checked)} /> 
+                Inclui {type === 'Materials' ? 'Materiais' : type === 'Rental' ? 'Locação' : 'Comodato'}?
               </label>
-              {(formData as any)[`has${type}`] && <textarea className="w-full p-2 text-sm border rounded" value={(formData as any)[`${type.toLowerCase()}List`]} onChange={e => handleChange(`${type.toLowerCase()}List` as any, e.target.value)} />}
+              {(formData as any)[`has${type}`] && <textarea placeholder="Liste os itens..." className="w-full p-3 text-sm border rounded-xl bg-slate-50" value={(formData as any)[`${type.toLowerCase()}List`]} onChange={e => handleChange(`${type.toLowerCase()}List` as any, e.target.value)} />}
             </div>
           ))}
         </div>
       );
       case 5: return (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <h3 className="text-lg font-bold text-gray-800">6. Financeiro</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase">Valor Total (R$)</label><input type="number" className="w-full p-2 border rounded" value={formData.value} onChange={e => handleChange('value', parseFloat(e.target.value))} /></div>
-            <div className="flex gap-2">
-              <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase">Início</label><input type="date" className="w-full p-2 border rounded" value={formData.startDate} onChange={e => handleChange('startDate', e.target.value)} /></div>
-              <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase">Término</label><input type="date" className="w-full p-2 border rounded" value={formData.endDate} onChange={e => handleChange('endDate', e.target.value)} /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100">
+               <label className="block text-[10px] font-black text-emerald-600 uppercase mb-2">Valor Total do Contrato (R$)</label>
+               <input type="number" className="w-full p-4 text-2xl font-black text-emerald-700 bg-transparent border-0 focus:ring-0" value={formData.value} onChange={e => handleChange('value', parseFloat(e.target.value))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-2xl">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Data Início</label>
+                <input type="date" className="w-full p-2 bg-transparent border-0 focus:ring-0 text-sm font-bold" value={formData.startDate} onChange={e => handleChange('startDate', e.target.value)} />
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl">
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Data Término</label>
+                <input type="date" className="w-full p-2 bg-transparent border-0 focus:ring-0 text-sm font-bold" value={formData.endDate} onChange={e => handleChange('endDate', e.target.value)} />
+              </div>
             </div>
           </div>
-          <div><label className="block text-xs font-bold text-gray-500 uppercase">Pagamento</label><input className="w-full p-2 border rounded" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} /></div>
+          <div className="p-6 border-2 border-gray-100 rounded-[2rem]">
+            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Condições de Pagamento</label>
+            <input className="w-full p-3 border rounded-xl" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} placeholder="Ex: 30 dias após emissão da nota..." />
+          </div>
         </div>
       );
       case 6: return (
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
-          <textarea rows={6} className="w-full p-3 border rounded text-sm bg-red-50/10" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Descreva os riscos identificados..."/>
+          <p className="text-xs text-red-500 font-bold flex items-center gap-2"><AlertTriangle size={14}/> Descreva pontos de atenção ou urgências críticas</p>
+          <textarea rows={8} className="w-full p-5 border-2 border-red-50 rounded-[2.5rem] text-sm bg-red-50/5 focus:ring-red-500 focus:border-red-500" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Fatores de risco identificados..."/>
         </div>
       );
       case 7: return (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">8. Doc. Obrigatórios</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <h3 className="text-lg font-bold text-gray-800">8. Doc. Obrigatórios (Checklist)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {checklistItems.map(item => (
-              <label key={item.id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input type="checkbox" className="h-5 w-5 text-primary-600" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
-                <span className="text-sm font-medium">{item.label}</span>
+              <label key={item.id} className="flex items-center gap-4 p-5 border-2 border-gray-50 rounded-2xl cursor-pointer hover:bg-gray-50 transition-all">
+                <input type="checkbox" className="h-6 w-6 text-primary-600 rounded-lg border-gray-300" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                <span className="text-sm font-bold text-gray-700">{item.label}</span>
               </label>
             ))}
           </div>
@@ -376,28 +394,41 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-bold text-gray-800">9. Anexos</h3>
-              <p className="text-xs text-slate-500">Envio opcional de certidões e documentos em PDF (máx. 2MB).</p>
+              <h3 className="text-lg font-bold text-gray-800">9. Documentos Anexos</h3>
+              <p className="text-xs text-slate-500 font-medium">Arquivos Cadastrais em PDF (Máx 2MB por arquivo).</p>
             </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">{formData.attachments.length} arquivos</span>
+            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full border border-emerald-100">
+               <FileCheck size={16}/>
+               <span className="text-xs font-black">{formData.attachments.length} Arquivos</span>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[450px] pr-2 scrollbar-thin">
             {attachmentTypes.map(type => {
-              const hasFile = formData.attachments.some(a => a.type === type);
+              const attachment = formData.attachments.find(a => a.type === type);
+              const hasFile = !!attachment;
               return (
-                <div key={type} className={`p-4 border rounded-2xl flex flex-col justify-between h-40 transition-all ${hasFile ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 shadow-sm'}`}>
-                  <div className="flex justify-between items-start gap-2">
-                    <span className={`text-[10px] font-black uppercase tracking-tighter leading-tight ${hasFile ? 'text-emerald-700' : 'text-slate-500'}`}>{type}</span>
-                    {hasFile && <Check className="text-emerald-500 shrink-0" size={14} />}
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
-                      {hasFile ? formData.attachments.find(a => a.type === type)?.name : 'Nenhum arquivo'}
+                <div key={type} className={`p-5 border-2 rounded-[2rem] flex flex-col justify-between min-h-[110px] transition-all group ${hasFile ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-100 hover:border-primary-200 hover:shadow-lg hover:shadow-primary-50'}`}>
+                  <div className="flex justify-between items-start gap-4 mb-3">
+                    <span className={`text-[10px] font-black uppercase tracking-tight leading-tight ${hasFile ? 'text-emerald-700' : 'text-slate-500 group-hover:text-primary-600'}`}>
+                      {type}
                     </span>
-                    <label className={`p-2 rounded-xl cursor-pointer ${hasFile ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      <Upload size={14} />
-                      <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
-                    </label>
+                    {hasFile ? <Check className="text-emerald-500 shrink-0" size={18} /> : <div className="w-5 h-5 rounded-full border-2 border-slate-100 shrink-0" />}
+                  </div>
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">
+                        {hasFile ? attachment.name : 'Vazio'}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {hasFile && (
+                        <button onClick={() => handleChange('attachments', formData.attachments.filter(a => a.type !== type))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><X size={14} /></button>
+                      )}
+                      <label className={`p-2.5 rounded-xl cursor-pointer transition-all ${hasFile ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-sm' : 'bg-slate-50 text-slate-400 hover:bg-primary-600 hover:text-white hover:shadow-lg hover:shadow-primary-100'}`}>
+                        <Upload size={16} />
+                        <input type="file" className="hidden" accept=".pdf" onChange={e => handleFileUpload(e, type)} />
+                      </label>
+                    </div>
                   </div>
                 </div>
               );
@@ -406,19 +437,39 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
       );
       case 9: return (
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">10. Revisão Final</h3>
-          <div className="bg-white p-8 border rounded-[2rem] shadow-sm text-sm space-y-6">
-             <div className="flex items-center gap-4 p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100">
-               <FileCheck size={32} />
-               <div>
-                  <p className="font-black">Pronto para Finalizar</p>
-                  <p className="text-xs text-emerald-600">Ao clicar em Finalizar, o contrato será salvo no banco e o download do PDF será iniciado.</p>
-               </div>
+        <div className="space-y-8">
+          <div className="flex items-center gap-6 p-8 bg-emerald-50 text-emerald-700 rounded-[3rem] border border-emerald-100 shadow-inner">
+             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-lg"><FileCheck size={48} /></div>
+             <div>
+                <h3 className="text-2xl font-black tracking-tighter">Revisão Final</h3>
+                <p className="text-sm font-medium text-emerald-600">Verifique os dados abaixo antes de finalizar a emissão do PDF.</p>
              </div>
-             <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Fornecedor</p><p className="font-bold">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'N/A'}</p></div>
-                <div className="p-4 border rounded-2xl"><p className="text-[10px] uppercase font-bold text-gray-400">Total</p><p className="font-bold text-emerald-600">R$ {formData.value.toLocaleString('pt-BR')}</p></div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="p-6 bg-white border-2 border-gray-100 rounded-[2.5rem] shadow-sm">
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-2 tracking-widest">Contratada</p>
+                <p className="text-lg font-black text-gray-800">{suppliers.find(s=>s.id===formData.supplierId)?.name || 'Fornecedor não selecionado'}</p>
+             </div>
+             <div className="p-6 bg-white border-2 border-gray-100 rounded-[2.5rem] shadow-sm">
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-2 tracking-widest">Valor do Contrato</p>
+                <p className="text-2xl font-black text-emerald-600">R$ {formData.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+             </div>
+          </div>
+
+          <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl relative overflow-hidden">
+             <div className="absolute -right-10 -bottom-10 opacity-10"><FileText size={200} /></div>
+             <p className="text-[10px] uppercase font-black text-slate-500 mb-4 tracking-widest">Dossiê de Anexos: {formData.attachments.length} arquivos</p>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-8">
+               {attachmentTypes.map(type => {
+                 const att = formData.attachments.find(a => a.type === type);
+                 return (
+                   <div key={type} className="flex items-center gap-2 text-xs">
+                     <div className={`w-2 h-2 rounded-full ${att ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                     <span className={att ? 'text-slate-100' : 'text-slate-600'}>- {type}: <span className="font-bold">{att ? att.name : 'Pendente'}</span></span>
+                   </div>
+                 );
+               })}
              </div>
           </div>
         </div>
@@ -428,33 +479,37 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 flex flex-col h-[90vh] w-full max-w-5xl mx-auto overflow-hidden animate-in zoom-in-95">
-      <div className="px-10 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
-        <div><h2 className="text-2xl font-black text-gray-900 tracking-tighter">Wizard de Contrato</h2><p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Grupo Resinas Brasil</p></div>
-        <button onClick={onCancel} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><X size={28} /></button>
+    <div className="bg-white rounded-[3rem] shadow-2xl border border-gray-100 flex flex-col h-[92vh] w-full max-w-6xl mx-auto overflow-hidden animate-in zoom-in-95 duration-500">
+      <div className="px-12 py-8 border-b border-gray-50 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <div><h2 className="text-3xl font-black text-slate-900 tracking-tighter">Checklist de Contrato</h2><p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Grupo Resinas Brasil • Sistema EcoContract</p></div>
+        <button onClick={onCancel} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"><X size={32} /></button>
       </div>
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex overflow-x-auto gap-8 no-scrollbar scroll-smooth">
+      
+      <div className="px-8 py-5 bg-slate-50/50 border-b border-gray-100 flex overflow-x-auto gap-8 no-scrollbar scroll-smooth">
         {steps.map((label, index) => (
-          <div key={index} className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer" onClick={() => setCurrentStep(index)}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${index === currentStep ? 'bg-primary-600 text-white shadow-lg' : index < currentStep ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-400'}`}>
-              {index < currentStep ? <Check size={14}/> : index + 1}
+          <div key={index} className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group" onClick={() => setCurrentStep(index)}>
+            <div className={`w-10 h-10 rounded-[1.25rem] flex items-center justify-center text-[10px] font-black transition-all ${index === currentStep ? 'bg-primary-600 text-white shadow-xl shadow-primary-200 scale-110' : index < currentStep ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-300 border-2 border-slate-100 group-hover:border-primary-200'}`}>
+              {index < currentStep ? <Check size={18} strokeWidth={3}/> : index + 1}
             </div>
-            <span className={`text-[8px] font-black uppercase tracking-tighter ${index === currentStep ? 'text-primary-600' : 'text-gray-400'}`}>{label}</span>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${index === currentStep ? 'text-primary-600' : 'text-slate-400'}`}>{label}</span>
           </div>
         ))}
       </div>
-      <div className="flex-1 p-10 overflow-y-auto">{renderStepContent()}</div>
-      <div className="px-10 py-6 border-t border-gray-100 bg-white flex justify-between items-center">
-        <div className="flex gap-2">
-          <button onClick={handleBack} disabled={currentStep === 0} className="px-6 py-3 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-400 disabled:opacity-30 flex items-center gap-2 hover:bg-gray-50 transition-all"><ChevronLeft size={18}/> Voltar</button>
-          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-6 py-3 rounded-2xl border-2 border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2 hover:bg-emerald-50 transition-all disabled:opacity-30">{isDraftSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Salvar Rascunho</button>
+
+      <div className="flex-1 p-12 overflow-y-auto no-scrollbar">{renderStepContent()}</div>
+
+      <div className="px-12 py-8 border-t border-gray-50 bg-white flex justify-between items-center sticky bottom-0 z-10">
+        <div className="flex gap-4">
+          <button onClick={handleBack} disabled={currentStep === 0} className="px-8 py-4 rounded-[1.5rem] border-2 border-slate-100 text-sm font-black text-slate-400 disabled:opacity-30 flex items-center gap-2 hover:bg-slate-50 transition-all hover:border-slate-200"><ChevronLeft size={20}/> Voltar</button>
+          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-8 py-4 rounded-[1.5rem] bg-emerald-50 text-emerald-700 text-sm font-black flex items-center gap-2 hover:bg-emerald-100 transition-all disabled:opacity-30 border-2 border-emerald-100 shadow-sm">{isDraftSaving ? <Loader2 size={20} className="animate-spin"/> : <Save size={20}/>} Salvar Rascunho</button>
         </div>
+        
         {currentStep === steps.length - 1 ? (
-          <button onClick={handleFinish} disabled={isSaving} className="px-10 py-3 bg-primary-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary-100 flex items-center gap-2 hover:bg-primary-700 transition-all">
-            {isSaving ? <><Loader2 size={18} className="animate-spin"/> Salvando...</> : <><FileText size={18}/> Finalizar e Baixar</>}
+          <button onClick={handleFinish} disabled={isSaving} className="px-12 py-4 bg-primary-600 text-white rounded-[1.5rem] text-sm font-black shadow-2xl shadow-primary-200 flex items-center gap-3 hover:bg-primary-700 transition-all active:scale-95">
+            {isSaving ? <><Loader2 size={20} className="animate-spin"/> Emitindo...</> : <><FileText size={20}/> Finalizar e Baixar</>}
           </button>
         ) : (
-          <button onClick={handleNext} className="px-10 py-3 bg-gray-900 text-white rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-black transition-all">Próximo <ChevronRight size={18}/></button>
+          <button onClick={handleNext} className="px-12 py-4 bg-slate-900 text-white rounded-[1.5rem] text-sm font-black flex items-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-200 active:scale-95">Próximo Passo <ChevronRight size={20}/></button>
         )}
       </div>
     </div>
