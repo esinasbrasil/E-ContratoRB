@@ -160,21 +160,34 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("ESCOPO DETALHADO", data.scopeDescription || "-");
 
-  printSection("4. EQUIPE E ASSINANTES");
+  printSection("4. EQUIPE E RESPONSABILIDADE");
+  
+  // Responsável Técnico com Destaque
+  checkPageOverflow(20);
+  doc.setFillColor(236, 253, 245); // emerald-50
+  doc.rect(margin, currentY, contentWidth, 15, 'F');
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(6, 78, 59);
+  doc.text("RESPONSÁVEL TÉCNICO (TITULAR)", margin + 5, currentY + 6);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  doc.text(`${safeText(data.technicalResponsible)} - CPF: ${safeText(data.technicalResponsibleCpf)}`, margin + 5, currentY + 11);
+  currentY += 20;
+
+  // Testemunhas / Prepostos
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+  doc.text("ASSINANTES (TESTEMUNHAS):", margin, currentY);
+  currentY += 6;
   if (data.prepostos && data.prepostos.length > 0) {
     data.prepostos.forEach((p, idx) => {
-      checkPageOverflow(15);
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-      doc.text(`ASSINANTE ${idx + 1}: ${safeText(p.name)}`, margin, currentY);
+      checkPageOverflow(10);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
+      doc.text(`${idx + 1}. ${safeText(p.name)} - CPF: ${safeText(p.cpf)} | E-mail: ${safeText(p.email)}`, margin + 3, currentY);
       currentY += 5;
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-      doc.text(`CPF: ${safeText(p.cpf)} | E-mail: ${safeText(p.email)}`, margin, currentY);
-      currentY += 7;
     });
   } else {
-    doc.text("Nenhum assinante informado.", margin, currentY);
-    currentY += 7;
+    doc.text("Nenhum assinante adicional informado.", margin + 3, currentY);
+    currentY += 5;
   }
+  currentY += 5;
 
   printSection("5. CONDIÇÕES COMERCIAIS");
   checkPageOverflow(25);
@@ -184,8 +197,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text(`VALOR TOTAL: R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 5, currentY + 10);
   currentY += 20;
 
-  printSection("6. DOCUMENTOS OBRIGATÓRIOS (CHECKLIST)");
-  doc.setFontSize(9);
+  printSection("6. DOCUMENTOS OBRIGATÓRIOS");
+  doc.setFontSize(8.5);
   const checks = [
     { label: "Acordo Comercial", val: data.docCheckCommercial },
     { label: "Pedido de Compra (PO)", val: data.docCheckPO },
@@ -199,6 +212,30 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     doc.text(`[ ${c.val ? 'X' : ' '} ] ${c.label}`, margin, currentY);
     currentY += 5;
   });
+  currentY += 5;
+
+  printSection("7. ANÁLISE JURÍDICA E DE RISCO");
+  doc.setFontSize(8.5);
+  const legalAspects = [
+    { label: 'Minuta padrão', val: data.aspectStandardDraft },
+    { label: 'Minuta NÃO padrão', val: data.aspectNonStandardDraft },
+    { label: 'Cláusulas de confidencialidade', val: data.aspectConfidentiality },
+    { label: 'Cláusulas de rescisão e penalidades', val: data.aspectTermination },
+    { label: 'Garantias exigidas (performance, etc.)', val: data.aspectWarranties },
+    { label: 'Contagem da garantia (entrega/execução)', val: data.aspectWarrantyStart },
+    { label: 'Obrigações pós-encerramento (sigilo)', val: data.aspectPostTermination },
+    { label: 'Interação com órgãos públicos', val: data.aspectPublicAgencies },
+    { label: 'Cláusula de antecipação de pagamento', val: data.aspectAdvancePayment },
+    { label: 'Ou não padrão', val: data.aspectNonStandard }
+  ];
+
+  legalAspects.forEach(a => {
+    checkPageOverflow(5);
+    doc.text(`[ ${a.val ? 'X' : ' '} ] ${a.label}`, margin, currentY);
+    currentY += 5;
+  });
+  currentY += 5;
+  printMultiLineText("OBSERVAÇÕES DE RISCO", data.urgenciesRisks || "-");
 
   printSection("9. DOCUMENTOS ANEXOS");
   currentY += 5;
@@ -229,10 +266,13 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 5.5;
   });
 
-  currentY = Math.max(currentY + 10, pageHeight - 45);
+  currentY = Math.max(currentY + 15, pageHeight - 50);
   doc.line(margin, currentY, margin + 70, currentY);
   doc.setFontSize(8);
   doc.text("Assinatura Solicitante / Gestor", margin + 35, currentY + 5, { align: "center" });
+  
+  doc.line(pageWidth - margin - 70, currentY, pageWidth - margin, currentY);
+  doc.text("Responsável Técnico", pageWidth - margin - 35, currentY + 5, { align: "center" });
 
   drawFooter();
   return doc.output('blob');

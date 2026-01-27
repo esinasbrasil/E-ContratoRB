@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User, ShieldCheck } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractWizardProps {
@@ -35,6 +35,19 @@ const checklistItems = [
   { id: 'docCheckSupplierAcceptance', label: 'Aceite do Fornecedor' },
   { id: 'docCheckSystemRegistration', label: 'Registro no Sistema' },
   { id: 'docCheckSupplierReport', label: 'Relatório do Fornecedor' }
+];
+
+const legalAspects = [
+  { id: 'aspectStandardDraft', label: 'Minuta padrão' },
+  { id: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
+  { id: 'aspectConfidentiality', label: 'Cláusulas de confidencialidade' },
+  { id: 'aspectTermination', label: 'Cláusulas de rescisão e penalidades' },
+  { id: 'aspectWarranties', label: 'Garantias exigidas (performance, etc.)' },
+  { id: 'aspectWarrantyStart', label: 'Contagem da garantia (entrega/execução)' },
+  { id: 'aspectPostTermination', label: 'Obrigações pós-encerramento (sigilo)' },
+  { id: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
+  { id: 'aspectAdvancePayment', label: 'Cláusula de antecipação de pagamento' },
+  { id: 'aspectNonStandard', label: 'Ou não padrão' }
 ];
 
 const attachmentTypes = [
@@ -303,11 +316,35 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
       );
       case 3: return (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-gray-800">4. Equipe (Assinantes)</h3>
-            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="px-4 py-2 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-primary-100"><Plus size={14}/> Adicionar Assinante</button>
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">4. Equipe (Assinantes e Responsável Técnico)</h3>
+          
+          {/* Responsável Técnico em Destaque */}
+          <div className="p-8 border-2 border-emerald-100 rounded-[3rem] bg-emerald-50/30 shadow-sm transition-all hover:border-emerald-300">
+            <div className="flex items-center gap-3 mb-6">
+               <div className="p-2 bg-emerald-600 rounded-xl text-white"><ShieldCheck size={20}/></div>
+               <div>
+                  <h4 className="text-sm font-black text-emerald-800 uppercase tracking-tight">Responsável Técnico</h4>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Este nome sairá em destaque no PDF</p>
+               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">Nome Completo do Responsável</label>
+                <input className="w-full p-3 text-sm border-0 rounded-2xl bg-white shadow-sm focus:ring-2 focus:ring-emerald-500" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Engenheiro / Arquiteto / Técnico" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">CPF do Responsável</label>
+                <input className="w-full p-3 text-sm border-0 rounded-2xl bg-white shadow-sm focus:ring-2 focus:ring-emerald-500" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} placeholder="000.000.000-00" />
+              </div>
+            </div>
           </div>
+
+          <div className="flex justify-between items-center pt-4">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Outros Assinantes (Testemunhas)</h3>
+            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="px-4 py-2 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-primary-100"><Plus size={14}/> Adicionar Testemunha</button>
+          </div>
+          
           <div className="space-y-4">
             {formData.prepostos.map((p, i) => (
               <div key={i} className="p-6 border-2 border-gray-100 rounded-[2rem] bg-slate-50 relative group transition-all hover:border-primary-200">
@@ -371,10 +408,38 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
       );
       case 6: return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
-          <p className="text-xs text-red-500 font-bold flex items-center gap-2"><AlertTriangle size={14}/> Descreva pontos de atenção ou urgências críticas</p>
-          <textarea rows={8} className="w-full p-5 border-2 border-red-50 rounded-[2.5rem] text-sm bg-red-50/5 focus:ring-red-500 focus:border-red-500" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Fatores de risco identificados..."/>
+        <div className="space-y-6">
+          <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco e Aspectos Jurídicos</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-4">
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Checklist de Aspectos Contratuais</p>
+               <div className="grid grid-cols-1 gap-2">
+                 {legalAspects.map(aspect => (
+                   <label key={aspect.id} className="flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                     <input 
+                       type="checkbox" 
+                       className="h-5 w-5 text-primary-600 rounded border-gray-300" 
+                       checked={(formData as any)[aspect.id]} 
+                       onChange={e => handleChange(aspect.id as any, e.target.checked)} 
+                     />
+                     <span className="text-xs font-bold text-gray-700">{aspect.label}</span>
+                   </label>
+                 ))}
+               </div>
+             </div>
+
+             <div className="space-y-4">
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><AlertTriangle size={14} className="text-red-500"/> Análise de Risco (Texto Livre)</p>
+               <textarea 
+                 rows={12} 
+                 className="w-full p-5 border-2 border-red-50 rounded-[2rem] text-sm bg-red-50/5 focus:ring-red-500 focus:border-red-500 outline-none" 
+                 value={formData.urgenciesRisks} 
+                 onChange={e => handleChange('urgenciesRisks', e.target.value)} 
+                 placeholder="Descreva pontos de atenção, urgências ou particularidades de risco do fornecimento..."
+               />
+             </div>
+          </div>
         </div>
       );
       case 7: return (
