@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Loader2 } from 'lucide-react';
+import { LogOut, Loader2, AlertTriangle } from 'lucide-react';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
 import EngineeringModule from './components/EngineeringModule';
@@ -62,12 +62,7 @@ const App: React.FC = () => {
         if (settings) setCompanySettings(settings);
       } else if (isSupabaseConfigured) {
         const [
-          { data: s }, 
-          { data: p }, 
-          { data: u }, 
-          { data: cat }, 
-          { data: ctr },
-          { data: settingsData }
+          { data: s }, { data: p }, { data: u }, { data: cat }, { data: ctr }, { data: settingsData }
         ] = await Promise.all([
           supabase.from('suppliers').select('*').order('name'),
           supabase.from('projects').select('*').order('name'),
@@ -76,7 +71,6 @@ const App: React.FC = () => {
           supabase.from('contracts').select('*').order('createdAt', { ascending: false }),
           supabase.from('company_settings').select('*').single()
         ]);
-
         if (s) setSuppliers(s);
         if (p) setProjects(p);
         if (u) setUnits(u);
@@ -84,11 +78,8 @@ const App: React.FC = () => {
         if (ctr) setContracts(ctr);
         if (settingsData) setCompanySettings(settingsData);
       }
-    } catch (error) {
-      console.error("Erro ao sincronizar dados:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error("Erro ao sincronizar:", error); }
+    finally { setLoading(false); }
   }, [isDemo]);
 
   useEffect(() => {
@@ -98,16 +89,11 @@ const App: React.FC = () => {
       setAuthChecking(false);
     };
     initializeAuth();
-
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
-      setSession(session);
-    });
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (session) fetchData();
-  }, [session, fetchData]);
+  useEffect(() => { if (session) fetchData(); }, [session, fetchData]);
 
   const handleLogout = async () => {
     await (supabase.auth as any).signOut();
@@ -118,19 +104,32 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       if (isDemo) {
-        storageMethod(data);
+        try {
+          storageMethod(data);
+        } catch (storageErr: any) {
+          if (storageErr.name === 'QuotaExceededError') {
+            alert("ERRO DE ARMAZENAMENTO: O limite do navegador foi excedido. Remova alguns anexos pesados (PDFs) para conseguir salvar.");
+            return false;
+          }
+          throw storageErr;
+        }
       } else {
         const { error } = await supabase.from(table).upsert(data);
         if (error) {
           console.error(`Erro no Supabase (${table}):`, error);
-          alert(`Erro ao salvar no banco de dados: ${error.message}. Verifique as políticas de RLS.`);
+          if (error.code === '413' || error.message.includes('too large')) {
+             alert("ERRO: O arquivo é muito grande para o banco de dados. Tente anexar PDFs menores ou em menor quantidade.");
+          } else {
+             alert(`Erro ao salvar no banco de dados: ${error.message}`);
+          }
           return false;
         }
       }
       await fetchData();
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`Falha crítica ao salvar: ${err.message || 'Verifique sua conexão.'}`);
       return false;
     } finally {
       setLoading(false);
@@ -141,96 +140,40 @@ const App: React.FC = () => {
     if (!window.confirm("Deseja realmente excluir este registro?")) return;
     setLoading(true);
     try {
-      if (isDemo) {
-        storageMethod(id);
-      } else {
+      if (isDemo) storageMethod(id);
+      else {
         const { error } = await supabase.from(table).delete().eq('id', id);
         if (error) throw error;
       }
       await fetchData();
-    } catch (err: any) {
-      alert(`Erro ao excluir: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { alert(`Erro ao excluir: ${err.message}`); }
+    finally { setLoading(false); }
   };
-
-  const handleAddSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
-  const handleUpdateSupplier = (s: Supplier) => saveAction('suppliers', s, storageService.saveSupplier);
-  const handleDeleteSupplier = (id: string) => deleteAction('suppliers', id, storageService.deleteSupplier);
-
-  const handleAddProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
-  const handleUpdateProject = (p: Project) => saveAction('projects', p, storageService.saveProject);
-  const handleDeleteProject = (id: string) => deleteAction('projects', id, storageService.deleteProject);
-
-  const handleAddUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
-  const handleUpdateUnit = (u: Unit) => saveAction('units', u, storageService.saveUnit);
-  const handleDeleteUnit = (id: string) => deleteAction('units', id, storageService.deleteUnit);
-
-  const handleAddServiceCategory = (c: ServiceCategory) => saveAction('service_categories', c, storageService.saveService);
-  const handleDeleteServiceCategory = (id: string) => deleteAction('service_categories', id, storageService.deleteService);
 
   const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
      const contractId = editingContract?.id || crypto.randomUUID();
      const newContract: any = {
-       id: contractId, 
-       projectId: data.projectId, 
-       supplierId, 
-       value, 
-       createdAt: editingContract?.createdAt || new Date().toISOString(), 
-       status: 'Draft', 
-       details: data
+       id: contractId, projectId: data.projectId, supplierId, value, 
+       createdAt: editingContract?.createdAt || new Date().toISOString(), status: 'Draft', details: data
      };
      return await saveAction('contracts', newContract, storageService.saveContract);
   };
 
-  const handleDeleteContract = (id: string) => deleteAction('contracts', id, storageService.deleteContract);
-
-  const handleRiskAnalysis = async (supplier: Supplier) => {
-    setAnalyzingRisk(supplier.id);
-    const report = await analyzeSupplierRisk(supplier.name, supplier.serviceType);
-    setRiskReport({ id: supplier.id, text: report });
-    setAnalyzingRisk(null);
+  // Added missing handleSaveSettings function to resolve the error
+  const handleSaveSettings = async (settings: CompanySettings) => {
+    return await saveAction('company_settings', settings, storageService.saveSettings);
   };
-
-  const handleSaveSettings = (s: CompanySettings) => {
-    setCompanySettings(s);
-    if (isDemo) storageService.saveSettings(s);
-    else supabase.from('company_settings').upsert({ id: 1, ...s });
-  };
-
-  const handleDemoLogin = () => {
-    setSession({ 
-      user: { email: 'demo@gruporb.com.br', id: 'demo' },
-      access_token: 'demo'
-    } as any);
-  };
-
-  if (authChecking) return (
-    <div className="h-screen w-full flex items-center justify-center bg-white">
-      <div className="flex flex-col items-center">
-        <div className="w-16 h-16 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
-        <p className="mt-6 text-slate-400 font-black text-[10px] uppercase tracking-widest">Sincronizando...</p>
-      </div>
-    </div>
-  );
-
-  if (!session) return <LoginPage onDemoLogin={handleDemoLogin} />;
 
   return (
     <>
       {currentModule === 'home' && <LandingPage onSelectModule={setCurrentModule} />}
-      
       {currentModule === 'engineering' && (
         <EngineeringModule 
-          projects={projects} units={units}
-          onAddProject={handleAddProject} onUpdateProject={handleUpdateProject}
-          onBack={() => setCurrentModule('home')}
+          projects={projects} units={units} onAddProject={p => saveAction('projects', p, storageService.saveProject)}
+          onUpdateProject={p => saveAction('projects', p, storageService.saveProject)} onBack={() => setCurrentModule('home')}
         />
       )}
-
       {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
-
       {currentModule === 'contracts' && (
         <>
           {contractWizardSupplierId !== null && (
@@ -238,80 +181,36 @@ const App: React.FC = () => {
               <ContractWizard 
                 suppliers={suppliers} projects={projects} units={units} settings={companySettings}
                 preSelectedSupplierId={contractWizardSupplierId === 'new' ? undefined : contractWizardSupplierId}
-                initialData={editingContract?.details}
-                onCancel={() => { setContractWizardSupplierId(null); setEditingContract(null); }}
+                initialData={editingContract?.details} onCancel={() => { setContractWizardSupplierId(null); setEditingContract(null); }}
                 onSave={handleSaveContract}
               />
             </div>
           )}
-
           <Layout activeTab={activeTab} onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
             <div className="absolute top-4 right-20 z-20">
                <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
                  <LogOut size={14}/> Sair
                </button>
             </div>
-            
             {loading && (
               <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
                 <Loader2 size={16} className="animate-spin" /> {isDemo ? 'Sincronizando Local...' : 'Sincronizando Nuvem...'}
               </div>
             )}
-
-            {activeTab === 'dashboard' && <Dashboard stats={{
-                totalSuppliers: suppliers.length,
-                activeProjects: projects.filter(p => p.status === 'Active').length,
-                contractsGenerated: contracts.length,
-                pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length
-            }} suppliersData={suppliers} projectsData={projects} />}
-
+            {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
             {activeTab === 'suppliers' && (
-              <SupplierManager
-                 suppliers={suppliers} serviceCategories={serviceCategories}
-                 onAdd={handleAddSupplier} onUpdate={handleUpdateSupplier} onDelete={handleDeleteSupplier}
-                 onOpenContractWizard={setContractWizardSupplierId} 
-                 onRiskAnalysis={handleRiskAnalysis}
-                 analyzingRiskId={analyzingRisk}
-                 riskReport={riskReport}
-                 onCloseRiskReport={() => setRiskReport(null)}
+              <SupplierManager 
+                suppliers={suppliers} serviceCategories={serviceCategories} onAdd={s => saveAction('suppliers', s, storageService.saveSupplier)} 
+                onUpdate={s => saveAction('suppliers', s, storageService.saveSupplier)} onDelete={id => deleteAction('suppliers', id, storageService.deleteSupplier)}
+                onOpenContractWizard={setContractWizardSupplierId} onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
+                analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
               />
             )}
-
-            {activeTab === 'projects' && (
-              <ProjectManager 
-                projects={projects} units={units} 
-                onAdd={handleAddProject} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} 
-              />
-            )}
-
-            {activeTab === 'units' && (
-              <UnitManager 
-                units={units} onAdd={handleAddUnit} onUpdate={handleUpdateUnit} onDelete={handleDeleteUnit} 
-              />
-            )}
-
-            {activeTab === 'contracts' && (
-              <ContractManager 
-                contracts={contracts} suppliers={suppliers} settings={companySettings} units={units}
-                onOpenWizard={() => setContractWizardSupplierId('new')}
-                onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }}
-                onDeleteContract={handleDeleteContract}
-              />
-            )}
-
-            {activeTab === 'types' && (
-              <ServiceTypeManager 
-                services={serviceCategories} onAdd={handleAddServiceCategory} onDelete={handleDeleteServiceCategory} 
-              />
-            )}
-
-            {activeTab === 'settings' && (
-              <SettingsManager 
-                settings={companySettings} onSave={handleSaveSettings} 
-                onReset={() => { storageService.resetDatabase(); fetchData(); }} 
-                onSeed={() => {}} 
-              />
-            )}
+            {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p, storageService.saveProject)} onUpdate={p => saveAction('projects', p, storageService.saveProject)} onDelete={id => deleteAction('projects', id, storageService.deleteProject)} />}
+            {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u, storageService.saveUnit)} onUpdate={u => saveAction('units', u, storageService.saveUnit)} onDelete={id => deleteAction('units', id, storageService.deleteUnit)} />}
+            {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id, storageService.deleteContract)} />}
+            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c, storageService.saveService)} onDelete={id => deleteAction('service_categories', id, storageService.deleteService)} />}
+            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={handleSaveSettings} onReset={() => { storageService.resetDatabase(); fetchData(); }} onSeed={() => {}} />}
           </Layout>
         </>
       )}

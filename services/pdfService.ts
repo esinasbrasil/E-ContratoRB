@@ -132,7 +132,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   drawHeader();
 
-  // 1. UNIDADE CONTRATANTE
   printSection("1. UNIDADE CONTRATANTE");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -158,7 +157,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   }
   currentY += 5;
 
-  // 2. DADOS DO FORNECEDOR
   printSection("2. DADOS DO FORNECEDOR");
   const halfWidth = contentWidth / 2;
   const col2 = margin + halfWidth;
@@ -174,27 +172,21 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   currentY += 8;
   
   printMultiLineText("ENDEREÇO DO FORNECEDOR", supplier?.address || "-");
-  
   printMultiLineText("TIPO DE SERVIÇO", data.serviceType || supplier?.serviceType || "-");
   printMultiLineText("FILIAIS DO FORNECEDOR ENVOLVIDAS", data.supplierBranches || "Não aplicável");
 
-  // 3. DOCUMENTAÇÃO E COMPLIANCE
   printSection("3. DOCUMENTAÇÃO E COMPLIANCE");
   doc.setFontSize(9);
   doc.text(`[ ${data.docSocialContract ? 'X' : ' '} ] Contrato Social`, margin, currentY);
   doc.text(`[ ${data.docSerasa ? 'X' : ' '} ] Pesquisas Serasa/Certidões`, margin + 60, currentY);
   currentY += 12;
 
-  // 4. ESCOPO TÉCNICO
   printSection("4. ESCOPO TÉCNICO");
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("DESCRIÇÃO DETALHADA DO ESCOPO", data.scopeDescription || "-");
 
-  // 5. EQUIPE E RESPONSÁVEIS
   printSection("5. EQUIPE E RESPONSÁVEIS");
-  const techRespName = safeText(data.technicalResponsible);
-  const techRespCpf = safeText(data.technicalResponsibleCpf);
-  const techRespFull = techRespCpf !== "-" ? `${techRespName} (CPF: ${techRespCpf})` : techRespName;
+  const techRespFull = data.technicalResponsibleCpf !== "-" ? `${data.technicalResponsible} (CPF: ${data.technicalResponsibleCpf})` : data.technicalResponsible;
   printMultiLineText("RESPONSÁVEL TÉCNICO (ART/RRT)", techRespFull);
   
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
@@ -215,7 +207,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 20;
   });
 
-  // 6. RECURSOS E MATERIAIS
   printSection("6. RECURSOS E MATERIAIS");
   const rListItems = [];
   if (data.hasMaterials) rListItems.push(`MATERIAIS: ${safeText(data.materialsList)}`);
@@ -223,7 +214,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   if (data.hasComodato) rListItems.push(`COMODATO: ${safeText(data.comodatoList)}`);
   printMultiLineText("RECURSOS ENVOLVIDOS", rListItems.length > 0 ? rListItems.join("\n\n") : "Não aplicável");
 
-  // 7. CONDIÇÕES COMERCIAIS
   printSection("7. CONDIÇÕES COMERCIAIS");
   checkPageOverflow(25);
   doc.setDrawColor(6, 78, 59);
@@ -235,10 +225,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setFontSize(14);
   const fValue = typeof data.value === 'number' ? data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : "0,00";
   doc.text(`R$ ${fValue}`, margin + 5, currentY + 14);
-  
-  doc.setFontSize(8);
   doc.text("Vigência:", margin + (contentWidth / 2), currentY + 6);
-  doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0); doc.setFontSize(8);
   doc.text(`${safeText(data.startDate)} até ${safeText(data.endDate)}`, margin + (contentWidth / 2), currentY + 14);
   currentY += 28;
 
@@ -257,49 +245,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   
   printMultiLineText("GARANTIAS", data.warranties || "-");
 
-  // 8. ANÁLISE DE RISCOS
   printSection("8. ANÁLISE DE RISCOS");
   printMultiLineText("Pontos de Atenção / Riscos", data.urgenciesRisks || "Nenhum risco crítico identificado.", 9, true);
-
-  printSection("8.1. ASPECTOS JURÍDICOS E DE RISCO");
-  const legalAspects = [
-    { id: 'aspectStandardDraft', label: 'Minuta padrão' }, 
-    { id: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
-    { id: 'aspectConfidentiality', label: 'Cláusulas de confidencialidade' }, 
-    { id: 'aspectTermination', label: 'Cláusulas de rescisão e penalidades' },
-    { id: 'aspectWarranties', label: 'Garantias exigidas (performance, entrega)' }, 
-    { id: 'aspectWarrantyStart', label: 'Contagem da garantia (entrega/execução)' },
-    { id: 'aspectPostTermination', label: 'Obrigações pós-encerramento (sigilo)' }, 
-    { id: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
-    { id: 'aspectAdvancePayment', label: 'Cláusula de antecipação de pagamento' }, 
-    { id: 'aspectNonStandard', label: 'Condições não padrão (Outros)' }
-  ];
-  doc.setFontSize(9);
-  legalAspects.forEach(it => { 
-    checkPageOverflow(6); 
-    const isSet = (data as any)[it.id] ? 'X' : ' ';
-    doc.text(`[ ${isSet} ] ${safeText(it.label)}`, margin, currentY); 
-    currentY += 6; 
-  });
-
-  printSection("8.2. CHECKLIST DE DOCUMENTOS OBRIGATÓRIOS");
-  const docChecklistItems = [
-    { id: 'docCheckCommercial', label: 'Acordo Comercial' }, 
-    { id: 'docCheckPO', label: 'Pedido de Compra (PO)' },
-    { id: 'docCheckCompliance', label: 'Termo de Conformidade' }, 
-    { id: 'docCheckSupplierAcceptance', label: 'Confirmação de aceite do fornecedor' },
-    { id: 'docCheckSystemRegistration', label: 'Registro no sistema de gestão' }, 
-    { id: 'docCheckSupplierReport', label: 'Relatório de avaliação' },
-    { id: 'docCheckFiscalValidation', label: 'Documentos fiscais validados' }, 
-    { id: 'docCheckSafetyDocs', label: 'Documentos de segurança do trabalho' },
-    { id: 'docCheckTrainingCertificates', label: 'Certificados de treinamentos' }
-  ];
-  docChecklistItems.forEach(it => { 
-    checkPageOverflow(6); 
-    const isSet = (data as any)[it.id] ? 'X' : ' ';
-    doc.text(`[ ${isSet} ] ${safeText(it.label)}`, margin, currentY); 
-    currentY += 6; 
-  });
 
   printSection("9. DOCUMENTOS ANEXOS");
   checkPageOverflow(20);
@@ -331,8 +278,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
 export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit) => {
   try {
-    console.group("Iniciando geração de PDF Mesclado");
-    
     const mainPdfBlob = await createChecklistPDFBlob(data, supplier, settings, unit);
     const mainPdfArrayBuffer = await mainPdfBlob.arrayBuffer();
     
@@ -340,35 +285,24 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     const mainPdfDoc = await PDFDocument.load(mainPdfArrayBuffer);
     const mainPages = await mergedPdf.copyPages(mainPdfDoc, mainPdfDoc.getPageIndices());
     mainPages.forEach((page) => mergedPdf.addPage(page));
-    
-    console.log(`Checklist gerado com ${mainPages.length} páginas.`);
 
     if (data.attachments && data.attachments.length > 0) {
        for (const attachment of data.attachments) {
            try {
                const attachmentBytes = base64ToUint8Array(attachment.fileData);
-               
                if (attachmentBytes.length > 0 && isPDF(attachmentBytes)) {
                  const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
-                 
                  for (const page of copiedPages) {
-                   // Ajuste automático de escala para A4 se as dimensões forem muito diferentes
                    const { width, height } = page.getSize();
                    const [a4Width, a4Height] = PageSizes.A4;
-                   
-                   // Se a página for maior ou menor que A4 em mais de 10%, redimensionamos para padronizar
                    if (Math.abs(width - a4Width) > 50 || Math.abs(height - a4Height) > 50) {
                      page.scale(Math.min(a4Width / width, a4Height / height));
                    }
-                   
                    mergedPdf.addPage(page);
                  }
-                 console.log(`- Anexo "${attachment.name}" mesclado com sucesso.`);
                }
-           } catch (err) {
-               console.warn(`- Erro ao processar anexo "${attachment.name}":`, err);
-           }
+           } catch (err) { console.warn(`Anexo "${attachment.name}" ignorado:`, err); }
        }
     }
 
@@ -382,14 +316,11 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
     setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    console.groupEnd();
     return true;
   } catch (error: any) {
-    console.error("Erro crítico na geração do PDF:", error);
-    console.groupEnd();
-    alert(`Erro ao gerar PDF consolidado. Verifique os arquivos e tente novamente.`);
+    console.error("Erro na mesclagem do PDF:", error);
+    alert(`Erro ao gerar PDF: ${error.message || 'Arquivo corrompido ou muito grande.'}`);
     return false;
   }
 };
