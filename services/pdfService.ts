@@ -62,12 +62,15 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     doc.setFontSize(14);
     doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
     doc.text(companyName.toUpperCase(), pageWidth - margin, 15, { align: "right" });
+    
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text(`Pedido: ${safeText(data.orderNumber)}`, pageWidth - margin, 20, { align: "right" });
+    
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(`${documentTitle} • Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, 24, { align: "right" });
+    
     doc.setFillColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
     doc.rect(margin, 32, contentWidth, 1.2, 'F');
     currentY = 42;
@@ -104,17 +107,18 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   };
 
   const printLabelValue = (label: string, value: string, fontSize: number = 9) => {
-    checkPageOverflow(8);
+    checkPageOverflow(10);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(100, 100, 100);
     doc.text(safeText(label).toUpperCase(), margin, currentY);
     currentY += 4.5;
+    
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(0, 0, 0);
     doc.text(safeText(value), margin, currentY);
-    currentY += 7;
+    currentY += 8;
   };
 
   const printMultiLineText = (label: string, text: string, fontSize: number = 9) => {
@@ -124,16 +128,18 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     checkPageOverflow(5);
     doc.text(safeText(label).toUpperCase(), margin, currentY);
     currentY += 5;
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(fontSize);
     doc.setTextColor(0, 0, 0);
+    
     const lines = doc.splitTextToSize(safeText(text), contentWidth);
     for (const line of lines) {
-      if (checkPageOverflow(5)) currentY += 5;
+      if (checkPageOverflow(6)) currentY += 6;
       doc.text(safeText(line), margin, currentY);
-      currentY += 4.5;
+      currentY += 5;
     }
-    currentY += 4;
+    currentY += 5;
   };
 
   drawHeader();
@@ -183,6 +189,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100);
   doc.text("ASSINANTES DO CONTRATO (PREPOSTOS)", margin, currentY);
   currentY += 6;
+
   if (data.prepostos && data.prepostos.length > 0) {
     data.prepostos.forEach((p) => {
       checkPageOverflow(26);
@@ -200,11 +207,16 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   // 6. RECURSOS
   printSection("6. RECURSOS E MATERIAIS");
-  const recursosLines = [];
+  const recursosLines: string[] = [];
   if (data.hasMaterials) recursosLines.push(`MATERIAIS: ${data.materialsList}`);
   if (data.hasEquipment) recursosLines.push(`EQUIPAMENTOS: ${data.equipmentList}`);
   if (data.hasRental) recursosLines.push(`LOCAÇÃO: ${data.rentalList}`);
   if (data.hasComodato) recursosLines.push(`COMODATO: ${data.comodatoList}`);
+  if (data.hasLabor && data.laborDetails.length > 0) {
+    recursosLines.push("MÃO DE OBRA:");
+    data.laborDetails.forEach(l => recursosLines.push(` - ${l.role}: ${l.quantity} pessoa(s)`));
+  }
+  
   if (recursosLines.length === 0) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9);
     doc.text("Não aplicável", margin, currentY);
@@ -213,7 +225,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     recursosLines.forEach(line => {
       const splitLines = doc.splitTextToSize(line, contentWidth);
       splitLines.forEach((l: any) => {
-        checkPageOverflow(5);
+        if (checkPageOverflow(6)) currentY += 6;
         doc.setFont("helvetica", "normal"); doc.setFontSize(9);
         doc.text(l, margin, currentY);
         currentY += 5;
@@ -224,7 +236,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   // 7. CONDIÇÕES COMERCIAIS
   printSection("7. CONDIÇÕES COMERCIAIS");
-  checkPageOverflow(35);
+  checkPageOverflow(30);
   doc.setDrawColor(6, 78, 59); doc.setFillColor(236, 253, 245);
   doc.roundedRect(margin, currentY, contentWidth, 22, 2, 2, 'FD');
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(6, 78, 59);
@@ -233,8 +245,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text(`R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 7, currentY + 16);
   doc.text("Vigência:", margin + colW + 10, currentY + 8);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
-  doc.text(`${data.startDate} até ${data.endDate}`, margin + colW + 10, currentY + 16);
-  currentY += 32;
+  doc.text(`${safeText(data.startDate)} até ${safeText(data.endDate)}`, margin + colW + 10, currentY + 16);
+  currentY += 30;
 
   printLabelValue("FORMA DE PAGAMENTO", data.paymentTerms || "-");
   printLabelValue("CRONOGRAMA DE FATURAMENTO", data.billingSchedule || "-");
@@ -265,15 +277,15 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     { label: "Obrigações pós-encerramento (sigilo)", val: data.aspectPostTermination },
     { label: "Interação com órgãos públicos", val: data.aspectPublicAgencies },
     { label: "Cláusula de antecipação de pagamento", val: data.aspectAdvancePayment },
-    { label: "ou não padrão", val: data.aspectNonStandard }
+    { label: "Condições não padrão (Outros)", val: data.aspectNonStandard }
   ];
   doc.setFontSize(8.5);
   legalItems.forEach(item => {
-    checkPageOverflow(6);
+    if (checkPageOverflow(6)) currentY += 6;
     doc.text(`[ ${item.val ? 'X' : ' '} ] ${item.label}`, margin, currentY);
     currentY += 6;
   });
-  currentY += 10;
+  currentY += 8;
 
   // 8.2 CHECKLIST
   printSection("8.2. CHECKLIST DE DOCUMENTOS OBRIGATÓRIOS");
@@ -289,7 +301,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     { label: "Certificados de treinamentos", val: data.docCheckTrainingCertificates }
   ];
   mainChecks.forEach(c => {
-    checkPageOverflow(6);
+    if (checkPageOverflow(6)) currentY += 6;
     doc.text(`[ ${c.val ? 'X' : ' '} ] ${c.label}`, margin, currentY);
     currentY += 6;
   });
@@ -301,17 +313,20 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   currentY += 8;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
   data.attachments.forEach(att => {
-    checkPageOverflow(6);
+    if (checkPageOverflow(6)) currentY += 6;
     doc.text(`  • ${safeText(att.type)}: ${safeText(att.name)}`, margin, currentY);
     currentY += 6;
   });
 
-  currentY = Math.max(currentY + 25, pageHeight - 50);
+  // Footer Signatures
+  checkPageOverflow(40);
+  currentY += 15;
   doc.setDrawColor(150, 150, 150);
   doc.line(margin, currentY, margin + 75, currentY);
-  doc.text("Solicitante / Gestor do Contrato", margin + 37, currentY + 5, { align: "center" });
+  doc.text("Solicitante / Gestor do Contrato", margin + 37.5, currentY + 5, { align: "center" });
   doc.line(pageWidth - margin - 75, currentY, pageWidth - margin, currentY);
-  doc.text("Aprovação Diretoria / Jurídico", pageWidth - margin - 37, currentY + 5, { align: "center" });
+  doc.text("Aprovação Diretoria / Jurídico", pageWidth - margin - 37.5, currentY + 5, { align: "center" });
+
   drawFooter();
   return doc.output('blob');
 };
@@ -324,6 +339,7 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     const mainPdfDoc = await PDFDocument.load(mainPdfArrayBuffer);
     const mainPages = await mergedPdf.copyPages(mainPdfDoc, mainPdfDoc.getPageIndices());
     mainPages.forEach((page) => mergedPdf.addPage(page));
+
     if (data.attachments && data.attachments.length > 0) {
        for (const attachment of data.attachments) {
            try {
@@ -331,11 +347,14 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
                if (attachmentBytes.length > 0 && isPDF(attachmentBytes)) {
                  const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
-                 for (const page of copiedPages) mergedPdf.addPage(page);
+                 for (const page of copiedPages) {
+                   mergedPdf.addPage(page);
+                 }
                }
-           } catch (err) { console.warn(`Error merging: ${attachment.name}`); }
+           } catch (err) { console.warn(`Erro ao mesclar anexo: ${attachment.name}`); }
        }
     }
+
     const mergedPdfBytes = await mergedPdf.save();
     const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
@@ -346,5 +365,8 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     link.click();
     document.body.removeChild(link);
     return true;
-  } catch (error) { console.error(error); return false; }
+  } catch (error) {
+    console.error("Erro geral no PDF:", error);
+    return false;
+  }
 };
