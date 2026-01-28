@@ -118,6 +118,7 @@ export interface ContractRequestData {
   scheduleSteps: string;
   value: number;
   paymentTerms: string;
+  billingSchedule?: string;
   capLimit: string;
   correctionIndex: string;
   warranties: string;

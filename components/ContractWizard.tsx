@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User, ShieldCheck } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User, ShieldCheck, Briefcase, Coins } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractWizardProps {
@@ -42,7 +42,7 @@ const legalAspects = [
   { id: 'aspectNonStandardDraft', label: 'Minuta NÃO padrão' },
   { id: 'aspectConfidentiality', label: 'Cláusulas de confidencialidade' },
   { id: 'aspectTermination', label: 'Cláusulas de rescisão e penalidades' },
-  { id: 'aspectWarranties', label: 'Garantias exigidas (performance, etc.)' },
+  { id: 'aspectWarranties', label: 'Garantias exigidas (performance, entrega, etc.)' },
   { id: 'aspectWarrantyStart', label: 'Contagem da garantia (entrega/execução)' },
   { id: 'aspectPostTermination', label: 'Obrigações pós-encerramento (sigilo)' },
   { id: 'aspectPublicAgencies', label: 'Interação com órgãos públicos' },
@@ -107,6 +107,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     scheduleSteps: '',
     value: 0,
     paymentTerms: '',
+    billingSchedule: '',
     capLimit: 'Não aplicável',
     correctionIndex: 'Não aplicável',
     warranties: 'Não aplicável',
@@ -324,7 +325,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             <div className="flex items-center gap-3 mb-6">
                <div className="p-2 bg-emerald-600 rounded-xl text-white"><ShieldCheck size={20}/></div>
                <div>
-                  <h4 className="text-sm font-black text-emerald-800 uppercase tracking-tight">Responsável Técnico</h4>
+                  <h4 className="text-sm font-black text-emerald-800 uppercase tracking-tight">Responsável Técnico (ART/RRT)</h4>
                   <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Este nome sairá em destaque no PDF</p>
                </div>
             </div>
@@ -341,18 +342,22 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           </div>
 
           <div className="flex justify-between items-center pt-4">
-            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Outros Assinantes (Testemunhas)</h3>
-            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="px-4 py-2 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-primary-100"><Plus size={14}/> Adicionar Testemunha</button>
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Assinantes do Contrato (Prepostos)</h3>
+            <button onClick={() => handleChange('prepostos', [...formData.prepostos, {name:'', role:'', email:'', cpf:''}])} className="px-4 py-2 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl flex items-center gap-2 hover:bg-primary-100"><Plus size={14}/> Adicionar Assinante</button>
           </div>
           
           <div className="space-y-4">
             {formData.prepostos.map((p, i) => (
               <div key={i} className="p-6 border-2 border-gray-100 rounded-[2rem] bg-slate-50 relative group transition-all hover:border-primary-200">
                 <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"><X size={20}/></button>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="lg:col-span-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><User size={10}/> Nome Completo</label>
                     <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.name} onChange={e => { const n = [...formData.prepostos]; n[i].name = e.target.value; handleChange('prepostos', n); }} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><Briefcase size={10}/> Cargo</label>
+                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.role} onChange={e => { const n = [...formData.prepostos]; n[i].role = e.target.value; handleChange('prepostos', n); }} placeholder="Ex: Diretor, Testemunha..." />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><FileText size={10}/> CPF</label>
@@ -384,7 +389,8 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       );
       case 5: return (
         <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">6. Financeiro</h3>
+          <h3 className="text-lg font-bold text-gray-800">6. Financeiro e Condições Comerciais</h3>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100">
                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-2">Valor Total do Contrato (R$)</label>
@@ -401,9 +407,31 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
               </div>
             </div>
           </div>
-          <div className="p-6 border-2 border-gray-100 rounded-[2rem]">
-            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Condições de Pagamento</label>
-            <input className="w-full p-3 border rounded-xl" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} placeholder="Ex: 30 dias após emissão da nota..." />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Forma de Pagamento</label>
+              <input className="w-full p-3 border rounded-xl" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} placeholder="Ex: 30 dias após emissão da nota..." />
+            </div>
+            <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Cronograma de Faturamento</label>
+              <input className="w-full p-3 border rounded-xl" value={formData.billingSchedule} onChange={e => handleChange('billingSchedule', e.target.value)} placeholder="Ex: Medição mensal, 50% antecipado..." />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 flex items-center gap-1"><ShieldCheck size={12}/> CAP / LIMITE</label>
+              <input className="w-full p-2 text-sm border-0 rounded-xl bg-slate-50" value={formData.capLimit} onChange={e => handleChange('capLimit', e.target.value)} />
+            </div>
+            <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 flex items-center gap-1"><Coins size={12}/> Índice de Reajuste</label>
+              <input className="w-full p-2 text-sm border-0 rounded-xl bg-slate-50" value={formData.correctionIndex} onChange={e => handleChange('correctionIndex', e.target.value)} />
+            </div>
+            <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 flex items-center gap-1"><ShieldCheck size={12}/> Garantias</label>
+              <input className="w-full p-2 text-sm border-0 rounded-xl bg-slate-50" value={formData.warranties} onChange={e => handleChange('warranties', e.target.value)} />
+            </div>
           </div>
         </div>
       );
