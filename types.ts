@@ -125,6 +125,7 @@ export interface ContractRequestData {
   
   urgenciesRisks: string;
 
+  // Novos campos Jurídicos Passo 7
   aspectStandardDraft: boolean;
   aspectNonStandardDraft: boolean;
   aspectConfidentiality: boolean;
