@@ -197,7 +197,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
 
   const handleSaveDraft = async () => {
     if (!formData.supplierId) {
-      alert("Selecione um fornecedor para salvar o rascunho.");
+      alert("Selecione um fornecedor para salvar.");
       return;
     }
     setIsDraftSaving(true);
@@ -205,7 +205,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       if (onSave) {
         const success = await onSave(formData, formData.supplierId, formData.value);
         if (success) {
-           alert("Solicitação salva com sucesso!");
+           alert("Solicitação salva com sucesso no sistema!");
            onCancel();
         }
       }
@@ -223,12 +223,14 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     
     setIsSaving(true);
     try {
+      // 1. Salva no banco/storage antes de gerar o PDF
       let success = true;
       if (onSave) {
         success = await onSave(formData, formData.supplierId, formData.value);
       }
       
       if (success) {
+        // 2. Gera e baixa o PDF
         const supplier = suppliers.find(s => s.id === formData.supplierId);
         const unit = units.find(u => u.id === formData.unitId) || units.find(u => u.name === formData.serviceLocation);
         
@@ -237,19 +239,17 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         if (pdfSuccess) {
           onCancel();
         } else {
-           alert("Contrato salvo no banco, mas houve um erro ao baixar o PDF. Tente novamente na lista de contratos.");
+           alert("Solicitação salva com sucesso, mas houve um erro ao gerar o arquivo PDF. Você pode tentar baixá-lo novamente na tela de Contratos.");
            onCancel();
         }
       }
     } catch (error: any) {
       console.error("Erro no fluxo de finalização:", error);
-      alert(`Erro ao salvar contrato: ${error.message}`);
+      alert(`Erro ao processar solicitação: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
-
-  const selectedUnit = units.find(u => u.id === formData.unitId);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -318,9 +318,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       );
       case 3: return (
         <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">4. Equipe (Assinantes e Responsável Técnico)</h3>
-          
-          {/* Responsável Técnico em Destaque */}
+          <h3 className="text-lg font-bold text-gray-800">4. Equipe e Assinantes</h3>
           <div className="p-8 border-2 border-emerald-100 rounded-[3rem] bg-emerald-50/30 shadow-sm transition-all hover:border-emerald-300">
             <div className="flex items-center gap-3 mb-6">
                <div className="p-2 bg-emerald-600 rounded-xl text-white"><ShieldCheck size={20}/></div>
@@ -331,11 +329,11 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">Nome Completo do Responsável</label>
-                <input className="w-full p-3 text-sm border-0 rounded-2xl bg-white shadow-sm focus:ring-2 focus:ring-emerald-500" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Engenheiro / Arquiteto / Técnico" />
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Nome Completo</label>
+                <input className="w-full p-3 text-sm border-0 rounded-2xl bg-white shadow-sm focus:ring-2 focus:ring-emerald-500" value={formData.technicalResponsible} onChange={e => handleChange('technicalResponsible', e.target.value)} placeholder="Engenheiro / Técnico Responsável" />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1">CPF do Responsável</label>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">CPF</label>
                 <input className="w-full p-3 text-sm border-0 rounded-2xl bg-white shadow-sm focus:ring-2 focus:ring-emerald-500" value={formData.technicalResponsibleCpf} onChange={e => handleChange('technicalResponsibleCpf', e.target.value)} placeholder="000.000.000-00" />
               </div>
             </div>
@@ -351,40 +349,26 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
               <div key={i} className="p-6 border-2 border-gray-100 rounded-[2rem] bg-slate-50 relative group transition-all hover:border-primary-200">
                 <button onClick={() => handleChange('prepostos', formData.prepostos.filter((_, idx) => idx !== i))} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"><X size={20}/></button>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="lg:col-span-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><User size={10}/> Nome Completo</label>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Nome Completo</label>
                     <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.name} onChange={e => { const n = [...formData.prepostos]; n[i].name = e.target.value; handleChange('prepostos', n); }} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><Briefcase size={10}/> Cargo</label>
-                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.role} onChange={e => { const n = [...formData.prepostos]; n[i].role = e.target.value; handleChange('prepostos', n); }} placeholder="Ex: Diretor, Testemunha..." />
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Cargo</label>
+                    <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.role} onChange={e => { const n = [...formData.prepostos]; n[i].role = e.target.value; handleChange('prepostos', n); }} placeholder="Ex: Diretor, Gestor..." />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><FileText size={10}/> CPF</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">CPF</label>
                     <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.cpf} onChange={e => { const n = [...formData.prepostos]; n[i].cpf = e.target.value; handleChange('prepostos', n); }} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 flex items-center gap-1"><Mail size={10}/> E-mail</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">E-mail</label>
                     <input className="w-full p-3 text-sm border-0 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary-500" value={p.email} onChange={e => { const n = [...formData.prepostos]; n[i].email = e.target.value; handleChange('prepostos', n); }} />
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      );
-      case 4: return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">5. Recursos</h3>
-          {['Materials', 'Rental', 'Comodato'].map(type => (
-            <div key={type} className="p-4 border-2 border-gray-50 rounded-2xl bg-white">
-              <label className="flex items-center gap-3 mb-3 font-bold text-sm text-gray-700">
-                <input type="checkbox" className="h-5 w-5 text-primary-600 rounded" checked={(formData as any)[`has${type}`]} onChange={e => handleChange(`has${type}` as any, e.target.checked)} /> 
-                Inclui {type === 'Materials' ? 'Materiais' : type === 'Rental' ? 'Locação' : 'Comodato'}?
-              </label>
-              {(formData as any)[`has${type}`] && <textarea placeholder="Liste os itens..." className="w-full p-3 text-sm border rounded-xl bg-slate-50" value={(formData as any)[`${type.toLowerCase()}List`]} onChange={e => handleChange(`${type.toLowerCase()}List` as any, e.target.value)} />}
-            </div>
-          ))}
         </div>
       );
       case 5: return (
@@ -415,7 +399,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
             </div>
             <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white">
               <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Cronograma de Faturamento</label>
-              <input className="w-full p-3 border rounded-xl" value={formData.billingSchedule} onChange={e => handleChange('billingSchedule', e.target.value)} placeholder="Ex: Medição mensal, 50% antecipado..." />
+              <input className="w-full p-3 border rounded-xl" value={formData.billingSchedule} onChange={e => handleChange('billingSchedule', e.target.value)} placeholder="Ex: Medição mensal..." />
             </div>
           </div>
 
@@ -436,38 +420,10 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
       );
       case 6: return (
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco e Aspectos Jurídicos</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="space-y-4">
-               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Checklist de Aspectos Contratuais</p>
-               <div className="grid grid-cols-1 gap-2">
-                 {legalAspects.map(aspect => (
-                   <label key={aspect.id} className="flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
-                     <input 
-                       type="checkbox" 
-                       className="h-5 w-5 text-primary-600 rounded border-gray-300" 
-                       checked={(formData as any)[aspect.id]} 
-                       onChange={e => handleChange(aspect.id as any, e.target.checked)} 
-                     />
-                     <span className="text-xs font-bold text-gray-700">{aspect.label}</span>
-                   </label>
-                 ))}
-               </div>
-             </div>
-
-             <div className="space-y-4">
-               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><AlertTriangle size={14} className="text-red-500"/> Análise de Risco (Texto Livre)</p>
-               <textarea 
-                 rows={12} 
-                 className="w-full p-5 border-2 border-red-50 rounded-[2rem] text-sm bg-red-50/5 focus:ring-red-500 focus:border-red-500 outline-none" 
-                 value={formData.urgenciesRisks} 
-                 onChange={e => handleChange('urgenciesRisks', e.target.value)} 
-                 placeholder="Descreva pontos de atenção, urgências ou particularidades de risco do fornecimento..."
-               />
-             </div>
-          </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">7. Análise de Risco</h3>
+          <p className="text-xs text-red-500 font-bold flex items-center gap-2"><AlertTriangle size={14}/> Descreva pontos de atenção ou urgências críticas</p>
+          <textarea rows={8} className="w-full p-5 border-2 border-red-50 rounded-[2.5rem] text-sm bg-red-50/5 focus:ring-red-500 focus:border-red-500 outline-none" value={formData.urgenciesRisks} onChange={e => handleChange('urgenciesRisks', e.target.value)} placeholder="Fatores de risco identificados..."/>
         </div>
       );
       case 7: return (
@@ -594,12 +550,12 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       <div className="px-12 py-8 border-t border-gray-50 bg-white flex justify-between items-center sticky bottom-0 z-10">
         <div className="flex gap-4">
           <button onClick={handleBack} disabled={currentStep === 0} className="px-8 py-4 rounded-[1.5rem] border-2 border-slate-100 text-sm font-black text-slate-400 disabled:opacity-30 flex items-center gap-2 hover:bg-slate-50 transition-all hover:border-slate-200"><ChevronLeft size={20}/> Voltar</button>
-          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-8 py-4 rounded-[1.5rem] bg-emerald-50 text-emerald-700 text-sm font-black flex items-center gap-2 hover:bg-emerald-100 transition-all disabled:opacity-30 border-2 border-emerald-100 shadow-sm">{isDraftSaving ? <Loader2 size={20} className="animate-spin"/> : <Save size={20}/>} Salvar Rascunho</button>
+          <button onClick={handleSaveDraft} disabled={isDraftSaving || !formData.supplierId} className="px-8 py-4 rounded-[1.5rem] bg-emerald-50 text-emerald-700 text-sm font-black flex items-center gap-2 hover:bg-emerald-100 transition-all disabled:opacity-30 border-2 border-emerald-100 shadow-sm">{isDraftSaving ? <Loader2 size={20} className="animate-spin"/> : <Save size={20}/>} Salvar Checklist</button>
         </div>
         
         {currentStep === steps.length - 1 ? (
           <button onClick={handleFinish} disabled={isSaving} className="px-12 py-4 bg-primary-600 text-white rounded-[1.5rem] text-sm font-black shadow-2xl shadow-primary-200 flex items-center gap-3 hover:bg-primary-700 transition-all active:scale-95">
-            {isSaving ? <><Loader2 size={20} className="animate-spin"/> Emitindo...</> : <><FileText size={20}/> Finalizar e Baixar</>}
+            {isSaving ? <><Loader2 size={20} className="animate-spin"/> Finalizando...</> : <><FileText size={20}/> Finalizar e Baixar PDF</>}
           </button>
         ) : (
           <button onClick={handleNext} className="px-12 py-4 bg-slate-900 text-white rounded-[1.5rem] text-sm font-black flex items-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-200 active:scale-95">Próximo Passo <ChevronRight size={20}/></button>

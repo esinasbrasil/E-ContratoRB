@@ -107,21 +107,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 12;
   };
 
-  const printLabelValue = (label: string, value: string, fontSize: number = 9) => {
-    checkPageOverflow(8);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(safeText(label).toUpperCase(), margin, currentY);
-    currentY += 4.5;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(fontSize);
-    doc.setTextColor(0, 0, 0);
-    doc.text(safeText(value), margin, currentY);
-    currentY += 7;
-  };
-
   const printMultiLineText = (label: string, text: string, fontSize: number = 9, isBold: boolean = false) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -169,73 +154,86 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   printMultiLineText("OBJETO DO FORNECIMENTO", data.objectDescription || "-");
   printMultiLineText("ESCOPO DETALHADO", data.scopeDescription || "-");
 
-  // SEÇÃO 5 - EQUIPE E RESPONSÁVEIS
+  // SEÇÃO 5 - EQUIPE E RESPONSÁVEIS (Layout Imagem 1)
   printSection("5. EQUIPE E RESPONSÁVEIS");
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(51, 65, 85);
   doc.text("RESPONSÁVEL TÉCNICO (ART/RRT)", margin, currentY);
-  currentY += 5.5;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  currentY += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.setTextColor(0, 0, 0);
   doc.text(safeText(data.technicalResponsible).toUpperCase(), margin, currentY);
   currentY += 10;
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(51, 65, 85);
   doc.text("ASSINANTES DO CONTRATO (PREPOSTOS)", margin, currentY);
-  currentY += 7;
+  currentY += 8;
 
   if (data.prepostos && data.prepostos.length > 0) {
     data.prepostos.forEach((p) => {
-      checkPageOverflow(25);
+      checkPageOverflow(26);
       doc.setDrawColor(226, 232, 240); // gray-200
-      doc.rect(margin, currentY, contentWidth, 20);
+      doc.setFillColor(255, 255, 255);
+      doc.rect(margin, currentY, contentWidth, 22);
       
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(0, 0, 0);
-      doc.text(safeText(p.name).toUpperCase(), margin + 5, currentY + 6.5);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(15, 23, 42);
+      doc.text(safeText(p.name).toUpperCase(), margin + 5, currentY + 7);
       
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(100, 100, 100);
-      doc.text(`${safeText(p.role)} • CPF: ${safeText(p.cpf)}`, margin + 5, currentY + 11.5);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(71, 85, 105);
+      doc.text(`${safeText(p.role)} • CPF: ${safeText(p.cpf)}`, margin + 5, currentY + 12.5);
       
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(100, 100, 100);
-      doc.text(safeText(p.email), margin + 5, currentY + 16.5);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(71, 85, 105);
+      doc.text(safeText(p.email), margin + 5, currentY + 17.5);
       
-      currentY += 24;
+      currentY += 26;
     });
   }
 
-  // SEÇÃO 7 - CONDIÇÕES COMERCIAIS
+  // SEÇÃO 7 - CONDIÇÕES COMERCIAIS (Layout Imagem 2)
   printSection("7. CONDIÇÕES COMERCIAIS");
-  checkPageOverflow(40);
+  checkPageOverflow(45);
   
   // Box de Valor e Vigência
   doc.setDrawColor(6, 78, 59); // emerald-800
   doc.setFillColor(236, 253, 245); // emerald-50
-  doc.roundedRect(margin, currentY, contentWidth, 20, 3, 3, 'FD');
+  doc.roundedRect(margin, currentY, contentWidth, 22, 2, 2, 'FD');
   
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(6, 78, 59);
-  doc.text("VALOR TOTAL ESTIMADO", margin + 6, currentY + 8);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(6, 78, 59);
-  doc.text(`R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 6, currentY + 15);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(6, 78, 59);
+  doc.text("VALOR TOTAL ESTIMADO", margin + 7, currentY + 8);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(6, 78, 59);
+  doc.text(`R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 7, currentY + 16);
   
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(6, 78, 59);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(6, 78, 59);
   doc.text("Vigência:", margin + contentWidth / 2 + 10, currentY + 8);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-  doc.text(`${data.startDate} até ${data.endDate}`, margin + contentWidth / 2 + 10, currentY + 15);
-  currentY += 28;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(15, 23, 42);
+  doc.text(`${data.startDate} até ${data.endDate}`, margin + contentWidth / 2 + 10, currentY + 16);
+  currentY += 30;
 
-  printLabelValue("FORMA DE PAGAMENTO", data.paymentTerms || "-");
-  printLabelValue("CRONOGRAMA DE FATURAMENTO", data.billingSchedule || "-");
+  const printComLabel = (label: string, value: string) => {
+    checkPageOverflow(12);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(100, 100, 100);
+    doc.text(safeText(label).toUpperCase(), margin, currentY);
+    currentY += 5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(0, 0, 0);
+    doc.text(safeText(value), margin, currentY);
+    currentY += 8;
+  };
+
+  printComLabel("FORMA DE PAGAMENTO", data.paymentTerms || "-");
+  printComLabel("CRONOGRAMA DE FATURAMENTO", data.billingSchedule || "-");
 
   const colWidth = contentWidth / 2;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+  checkPageOverflow(15);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(100, 100, 100);
   doc.text("CAP / LIMITE", margin, currentY);
   doc.text("ÍNDICE DE REAJUSTE", margin + colWidth, currentY);
-  currentY += 4.5;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(0, 0, 0);
   doc.text(safeText(data.capLimit), margin, currentY);
   doc.text(safeText(data.correctionIndex), margin + colWidth, currentY);
   currentY += 10;
 
-  printLabelValue("GARANTIAS", data.warranties || "-");
+  printComLabel("GARANTIAS", data.warranties || "-");
 
+  currentY += 5;
   printSection("8. DOCUMENTOS OBRIGATÓRIOS");
   doc.setFontSize(8.5);
   const checks = [
@@ -255,7 +253,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   printSection("9. DOCUMENTOS ANEXOS");
   currentY += 4;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Documentos Contratuais e Cadastrais:", margin, currentY);
-  currentY += 7;
+  currentY += 8;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
   
   const attachmentTypes = [
@@ -271,7 +269,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 5.5;
   });
 
-  currentY = Math.max(currentY + 15, pageHeight - 50);
+  currentY = Math.max(currentY + 20, pageHeight - 50);
   doc.line(margin, currentY, margin + 70, currentY);
   doc.setFontSize(8); doc.text("Assinatura Solicitante / Gestor", margin + 35, currentY + 5, { align: "center" });
   
