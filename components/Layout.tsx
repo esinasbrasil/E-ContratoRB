@@ -39,13 +39,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
     { id: 'procedures', label: 'Procedimentos', icon: <History size={20} /> },
-    { id: 'types', label: 'Tipos de Serviço', icon: <CheckSquare size={20} /> },
+    { id: 'types', label: 'Tipos de serviço', icon: <CheckSquare size={20} /> },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -57,24 +57,24 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
       {/* Sidebar */}
       <aside 
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-primary-900 text-white transform transition-transform duration-300 ease-in-out
+          fixed inset-y-0 left-0 z-30 w-64 bg-[#064e3b] text-white transform transition-transform duration-300 ease-in-out
           lg:relative lg:translate-x-0
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="flex items-center justify-between p-4 border-b border-primary-800">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+        <div className="flex items-center justify-between p-6 border-b border-emerald-800/30">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
               <FileText className="text-white" size={20} />
             </div>
-            <span className="text-xl font-bold tracking-tight">EcoContract</span>
+            <span className="text-xl font-black tracking-tight">EcoContrato</span>
           </div>
-          <button onClick={toggleSidebar} className="lg:hidden text-primary-200">
+          <button onClick={toggleSidebar} className="lg:hidden text-emerald-200 hover:text-white">
             <X size={24} />
           </button>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 mt-4 space-y-1">
           {menuItems.map((item) => (
             <button
               key={item.id}
@@ -83,31 +83,33 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
                 setIsSidebarOpen(false);
               }}
               className={`
-                flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors
+                flex items-center w-full px-4 py-3.5 text-sm font-bold rounded-2xl transition-all duration-200
                 ${activeTab === item.id 
-                  ? 'bg-primary-800 text-white border-l-4 border-primary-500' 
-                  : 'text-primary-100 hover:bg-primary-800 hover:text-white'}
+                  ? 'bg-emerald-600/50 text-white shadow-xl shadow-emerald-950/20' 
+                  : 'text-emerald-100/70 hover:bg-emerald-800/50 hover:text-white'}
               `}
             >
-              <span className="mr-3">{item.icon}</span>
+              <span className={`mr-4 transition-transform duration-200 ${activeTab === item.id ? 'scale-110 text-emerald-400' : ''}`}>
+                {item.icon}
+              </span>
               {item.label}
             </button>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-primary-800 space-y-1">
+        <div className="absolute bottom-0 w-full p-4 border-t border-emerald-800/30 bg-[#064e3b]">
            <button 
             onClick={() => {
               onNavigate('settings');
               setIsSidebarOpen(false);
             }}
             className={`
-              flex items-center w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors mb-2
-              ${activeTab === 'settings' ? 'bg-primary-800 text-white' : 'text-primary-200 hover:text-white hover:bg-primary-800'}
+              flex items-center w-full px-4 py-3 text-sm font-bold rounded-xl transition-all mb-2
+              ${activeTab === 'settings' ? 'bg-emerald-600/30 text-white' : 'text-emerald-100/60 hover:text-white hover:bg-emerald-800/50'}
             `}
           >
-            <Settings size={20} className="mr-3" />
-            Configurações
+            <Settings size={20} className="mr-4" />
+            configurações
           </button>
           
           <button 
@@ -115,9 +117,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
               onNavigate('home');
               setIsSidebarOpen(false);
             }}
-            className="flex items-center w-full px-4 py-2 text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800 rounded-lg transition-colors"
+            className="flex items-center w-full px-4 py-3 text-sm font-bold text-emerald-100/40 hover:text-white hover:bg-emerald-800/50 rounded-xl transition-all"
           >
-            <LogOut size={20} className="mr-3" />
+            <LogOut size={20} className="mr-4" />
             Voltar ao Portal
           </button>
         </div>
@@ -125,25 +127,27 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 bg-white shadow-sm z-10">
-          <button onClick={toggleSidebar} className="lg:hidden text-gray-500">
+        <header className="flex items-center justify-between px-8 py-4 bg-white shadow-sm z-10 border-b border-gray-100">
+          <button onClick={toggleSidebar} className="lg:hidden text-gray-400 hover:text-emerald-600">
             <Menu size={24} />
           </button>
-          <div className="flex items-center space-x-4 ml-auto">
+          <div className="flex items-center space-x-6 ml-auto">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-gray-900 max-w-[150px] truncate">{userEmail}</p>
-              <span className="text-xs text-green-500 font-medium flex justify-end items-center">
-                 <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Online
+              <p className="text-sm font-bold text-slate-700 max-w-[200px] truncate">{userEmail}</p>
+              <span className="text-[10px] text-emerald-500 font-black uppercase tracking-widest flex justify-end items-center gap-1.5">
+                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> On-line
               </span>
             </div>
-            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-primary-200 uppercase">
-              <UserCircle size={24}/>
+            <div className="h-11 w-11 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm transition-transform hover:scale-105">
+              <UserCircle size={26}/>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          {children}
+        <main className="flex-1 overflow-auto bg-slate-50/50">
+          <div className="p-8 max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
