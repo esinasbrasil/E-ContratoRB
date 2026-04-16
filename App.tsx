@@ -18,7 +18,7 @@ import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -29,7 +29,6 @@ import {
   deleteDoc,
   getDocFromServer
 } from 'firebase/firestore';
-import { storageService } from './services/storageService';
 
 enum OperationType {
   CREATE = 'create',
@@ -96,7 +95,7 @@ const App: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [processos, setProcessos] = useState<Procedure[]>([]);
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     companyName: 'GRUPO RESINAS BRASIL',
@@ -111,8 +110,6 @@ const App: React.FC = () => {
   const [analyzingRisk, setAnalyzingRisk] = useState<string | null>(null);
   const [riskReport, setRiskReport] = useState<{ id: string, text: string } | null>(null);
 
-  const isDemo = session?.user?.id === 'demo';
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setSession(user ? { user } : null);
@@ -122,7 +119,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!session || isDemo) return;
+    if (!session) return;
 
     const unsubscribers: (() => void)[] = [];
 
@@ -142,7 +139,7 @@ const App: React.FC = () => {
     setupListener('units', setUnits);
     setupListener('service_categories', setServiceCategories);
     setupListener('contracts', setContracts, 'createdAt');
-    setupListener('procedures', setProcedures, 'requestDate');
+    setupListener('processos', setProcessos, 'createdAt');
 
     // Settings is a single doc
     const settingsUnsub = onSnapshot(doc(db, 'company_settings', 'global'), (snapshot) => {
@@ -155,23 +152,7 @@ const App: React.FC = () => {
     unsubscribers.push(settingsUnsub);
 
     return () => unsubscribers.forEach(unsub => unsub());
-  }, [session, isDemo]);
-
-  const fetchData = useCallback(async () => {
-    if (!isDemo) return; // Firebase handles real-time
-    setLoading(true);
-    try {
-      setSuppliers(storageService.getSuppliers());
-      setProjects(storageService.getProjects());
-      setUnits(storageService.getUnits());
-      setServiceCategories(storageService.getServices());
-      setContracts(storageService.getContracts());
-      setProcedures(storageService.getProcedures());
-      const settings = storageService.getSettings();
-      if (settings) setCompanySettings(settings);
-    } catch (error) { console.error("Erro ao sincronizar:", error); }
-    finally { setLoading(false); }
-  }, [isDemo]);
+  }, [session]);
 
   useEffect(() => {
     // Test connection to Firestore
@@ -192,33 +173,25 @@ const App: React.FC = () => {
     setSession(null);
   };
 
-  const saveAction = async (table: string, data: any, storageMethod: (item: any) => void): Promise<boolean> => {
+  const saveAction = async (table: string, data: any): Promise<boolean> => {
     setLoading(true);
     try {
-      if (isDemo) {
-        storageMethod(data);
-        await fetchData();
-        return true;
-      } else {
-        const dataWithUser = { ...data };
-        if (session?.user?.uid) {
-          dataWithUser.user_id = session.user.uid;
-        }
-        
-        // Use document ID if exists, otherwise generate one
-        const docId = data.id || (table === 'company_settings' ? 'global' : crypto.randomUUID());
-        if (!data.id && table !== 'company_settings') dataWithUser.id = docId;
-
-        try {
-          await setDoc(doc(db, table, docId), dataWithUser);
-          return true;
-        } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, `${table}/${docId}`);
-          return false;
-        }
+      const dataWithUser = { ...data };
+      if (session?.user?.uid) {
+        dataWithUser.user_id = session.user.uid;
       }
+      
+      const docId = data.id || (table === 'company_settings' ? 'global' : crypto.randomUUID());
+      if (!data.id && table !== 'company_settings') dataWithUser.id = docId;
+
+      await setDoc(doc(db, table, docId), dataWithUser);
+      return true;
     } catch (err: any) {
-      alert(`Falha ao salvar: ${err.message}`);
+      if (err.name === 'Error' && err.message.includes('Firestore Error')) {
+         alert(`Erro de Permissão: Você não tem permissão para salvar nestes dados.`);
+      } else {
+         alert(`Falha ao salvar: ${err.message}`);
+      }
       return false;
     } finally {
       setLoading(false);
@@ -236,24 +209,19 @@ const App: React.FC = () => {
        status: 'Draft', 
        details: data
      };
-     return await saveAction('contracts', newContract, storageService.saveContract);
+     return await saveAction('contracts', newContract);
   };
 
-  const deleteAction = async (table: string, id: string, storageMethod: (id: string) => void) => {
+  const deleteAction = async (table: string, id: string) => {
     if (!window.confirm("Deseja realmente excluir este registro?")) return;
     setLoading(true);
     try {
-      if (isDemo) storageMethod(id);
-      else {
-        try {
-          await deleteDoc(doc(db, table, id));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.DELETE, `${table}/${id}`);
-        }
-      }
-      if (isDemo) await fetchData();
-    } catch (err: any) { alert(`Erro ao excluir: ${err.message}`); }
-    finally { setLoading(false); }
+      await deleteDoc(doc(db, table, id));
+    } catch (err: any) { 
+      alert(`Erro ao excluir: ${err.message}`); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   if (authChecking) {
@@ -265,7 +233,7 @@ const App: React.FC = () => {
   }
 
   if (!session) {
-    return <LoginPage onDemoLogin={() => setSession({ user: { id: 'demo' } })} />;
+    return <LoginPage onDemoLogin={() => signInAnonymously(auth)} />;
   }
 
   return (
@@ -274,15 +242,15 @@ const App: React.FC = () => {
       {currentModule === 'engineering' && (
         <EngineeringModule 
           projects={projects} units={units} 
-          onAddProject={p => saveAction('projects', p, storageService.saveProject)}
-          onUpdateProject={p => saveAction('projects', p, storageService.saveProject)} 
+          onAddProject={p => saveAction('projects', p)}
+          onUpdateProject={p => saveAction('projects', p)} 
           onBack={() => setCurrentModule('home')}
         />
       )}
       {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
       {currentModule === 'procedures' && (
         <Layout activeTab="procedures" onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
-           <ProcedureManager procedures={procedures} projects={projects} suppliers={suppliers} onAdd={p => saveAction('procedures', p, storageService.saveProcedure)} onUpdate={p => saveAction('procedures', p, storageService.saveProcedure)} onDelete={id => deleteAction('procedures', id, storageService.deleteProcedure)} />
+           <ProcedureManager procedures={processos} projects={projects} suppliers={suppliers} onAdd={p => saveAction('processos', p)} onUpdate={p => saveAction('processos', p)} onDelete={id => deleteAction('processos', id)} />
         </Layout>
       )}
       {currentModule === 'contracts' && (
@@ -305,27 +273,27 @@ const App: React.FC = () => {
             </div>
             {loading && (
               <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
-                <Loader2 size={16} className="animate-spin" /> {isDemo ? 'Sincronizando Local...' : 'Sincronizando Nuvem...'}
+                <Loader2 size={16} className="animate-spin" /> Sincronizando Nuvem...
               </div>
             )}
             {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
             {activeTab === 'suppliers' && (
               <SupplierManager 
                 suppliers={suppliers} serviceCategories={serviceCategories} 
-                onAdd={s => saveAction('suppliers', s, storageService.saveSupplier)} 
-                onUpdate={s => saveAction('suppliers', s, storageService.saveSupplier)} 
-                onDelete={id => deleteAction('suppliers', id, storageService.deleteSupplier)}
+                onAdd={s => saveAction('suppliers', s)} 
+                onUpdate={s => saveAction('suppliers', s)} 
+                onDelete={id => deleteAction('suppliers', id)}
                 onOpenContractWizard={setContractWizardSupplierId} 
                 onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
                 analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
               />
             )}
-            {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p, storageService.saveProject)} onUpdate={p => saveAction('projects', p, storageService.saveProject)} onDelete={id => deleteAction('projects', id, storageService.deleteProject)} />}
-            {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u, storageService.saveUnit)} onUpdate={u => saveAction('units', u, storageService.saveUnit)} onDelete={id => deleteAction('units', id, storageService.deleteUnit)} />}
-            {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id, storageService.deleteContract)} />}
-            {activeTab === 'procedures' && <ProcedureManager procedures={procedures} projects={projects} suppliers={suppliers} onAdd={p => saveAction('procedures', p, storageService.saveProcedure)} onUpdate={p => saveAction('procedures', p, storageService.saveProcedure)} onDelete={id => deleteAction('procedures', id, storageService.deleteProcedure)} />}
-            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c, storageService.saveService)} onDelete={id => deleteAction('service_categories', id, storageService.deleteService)} />}
-            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s, storageService.saveSettings)} onReset={() => { storageService.resetDatabase(); fetchData(); }} onSeed={() => {}} />}
+            {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p)} onUpdate={p => saveAction('projects', p)} onDelete={id => deleteAction('projects', id)} />}
+            {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u)} onUpdate={u => saveAction('units', u)} onDelete={id => deleteAction('units', id)} />}
+            {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id)} />}
+            {activeTab === 'procedures' && <ProcedureManager procedures={processos} projects={projects} suppliers={suppliers} onAdd={p => saveAction('processos', p)} onUpdate={p => saveAction('processos', p)} onDelete={id => deleteAction('processos', id)} />}
+            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
+            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
           </Layout>
         </>
       )}

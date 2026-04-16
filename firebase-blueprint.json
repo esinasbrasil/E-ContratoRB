@@ -149,7 +149,7 @@
       "schema": "Contract",
       "description": "Contracts collection"
     },
-    "/procedures/{procedureId}": {
+    "/processos/{processoId}": {
       "schema": "Procedure",
       "description": "Procedures tracking collection"
     },

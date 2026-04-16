@@ -133,7 +133,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-gray-900 max-w-[150px] truncate">{userEmail}</p>
               <span className="text-xs text-green-500 font-medium flex justify-end items-center">
-                 <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Online (Local)
+                 <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span> Online
               </span>
             </div>
             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold border-2 border-primary-200 uppercase">
