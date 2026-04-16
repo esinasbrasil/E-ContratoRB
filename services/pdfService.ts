@@ -331,6 +331,15 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   return doc.output('blob');
 };
 
+const isImage = (bytes: Uint8Array): boolean => {
+  if (bytes.length < 4) return false;
+  // PNG: 89 50 4E 47
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return true;
+  // JPG: FF D8 FF
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return true;
+  return false;
+};
+
 export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit) => {
   try {
     const mainPdfBlob = await createChecklistPDFBlob(data, supplier, settings, unit);
@@ -344,14 +353,42 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
        for (const attachment of data.attachments) {
            try {
                const attachmentBytes = base64ToUint8Array(attachment.fileData);
-               if (attachmentBytes.length > 0 && isPDF(attachmentBytes)) {
+               if (attachmentBytes.length === 0) continue;
+
+               if (isPDF(attachmentBytes)) {
                  const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
                  for (const page of copiedPages) {
                    mergedPdf.addPage(page);
                  }
+               } else if (isImage(attachmentBytes)) {
+                 // Support images by embedding them in a new PDF page
+                 let image;
+                 if (attachmentBytes[0] === 0x89) {
+                   image = await mergedPdf.embedPng(attachmentBytes);
+                 } else {
+                   image = await mergedPdf.embedJpg(attachmentBytes);
+                 }
+                 
+                 const page = mergedPdf.addPage(PageSizes.A4);
+                 const { width, height } = page.getSize();
+                 
+                 // Scale image to fit page while maintaining aspect ratio
+                 const imgDims = image.scale(1);
+                 const scale = Math.min(width / imgDims.width, height / imgDims.height);
+                 const scaledWidth = imgDims.width * scale;
+                 const scaledHeight = imgDims.height * scale;
+                 
+                 page.drawImage(image, {
+                   x: (width - scaledWidth) / 2,
+                   y: (height - scaledHeight) / 2,
+                   width: scaledWidth,
+                   height: scaledHeight,
+                 });
                }
-           } catch (err) { console.warn(`Erro ao mesclar anexo: ${attachment.name}`); }
+           } catch (err) { 
+             console.warn(`Erro ao mesclar anexo: ${attachment.name}`, err); 
+           }
        }
     }
 

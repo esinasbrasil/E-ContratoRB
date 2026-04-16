@@ -123,10 +123,16 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
 
-    const setupListener = (colName: string, setter: (data: any) => void, orderField: string = 'name') => {
-      const q = query(collection(db, colName), orderBy(orderField));
-      const unsub = onSnapshot(q, (snapshot) => {
+    const setupListener = (colName: string, setter: (data: any) => void, orderField: string = 'name', direction: 'asc' | 'desc' = 'asc') => {
+      const unsub = onSnapshot(collection(db, colName), (snapshot) => {
         const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        data.sort((a: any, b: any) => {
+          const valA = a[orderField] || '';
+          const valB = b[orderField] || '';
+          return direction === 'asc' 
+            ? valA.toString().localeCompare(valB.toString())
+            : valB.toString().localeCompare(valA.toString());
+        });
         setter(data);
       }, (error) => {
         handleFirestoreError(error, OperationType.LIST, colName);
@@ -138,8 +144,8 @@ const App: React.FC = () => {
     setupListener('projects', setProjects);
     setupListener('units', setUnits);
     setupListener('service_categories', setServiceCategories);
-    setupListener('contracts', setContracts, 'createdAt');
-    setupListener('processos', setProcessos, 'createdAt');
+    setupListener('contracts', setContracts, 'createdAt', 'desc');
+    setupListener('processos', setProcessos, 'createdAt', 'desc');
 
     // Settings is a single doc
     const settingsUnsub = onSnapshot(doc(db, 'company_settings', 'global'), (snapshot) => {
@@ -173,24 +179,41 @@ const App: React.FC = () => {
     setSession(null);
   };
 
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+  };
+
   const saveAction = async (table: string, data: any): Promise<boolean> => {
     setLoading(true);
+    console.log(`Iniciando salvamento em ${table}:`, data);
     try {
       const dataWithUser = { ...data };
       if (session?.user?.uid) {
         dataWithUser.user_id = session.user.uid;
       }
       
-      const docId = data.id || (table === 'company_settings' ? 'global' : crypto.randomUUID());
-      if (!data.id && table !== 'company_settings') dataWithUser.id = docId;
+      const docId = data.id || (table === 'company_settings' ? 'global' : generateId());
+      if (!data.id && table !== 'company_settings') {
+        dataWithUser.id = docId;
+      }
 
       await setDoc(doc(db, table, docId), dataWithUser);
+      console.log(`Documento salvo com sucesso em ${table}/${docId}`);
       return true;
     } catch (err: any) {
-      if (err.name === 'Error' && err.message.includes('Firestore Error')) {
-         alert(`Erro de Permissão: Você não tem permissão para salvar nestes dados.`);
+      console.error(`Erro ao salvar em ${table}:`, err);
+      
+      const errorMessage = err.message || String(err);
+      // Firebase error codes are often in err.code
+      if (err.code === 'permission-denied' || errorMessage.includes('permission-denied') || errorMessage.includes('insufficient permissions')) {
+         alert(`Erro de Permissão: Você não tem permissão para salvar na coleção "${table}". Verifique se você é o dono deste registro ou administrador.`);
+      } else if (err.code === 'quota-exceeded') {
+         alert(`Limite atingido: O limite gratuito do Firebase foi excedido. Os dados serão resetados amanhã.`);
       } else {
-         alert(`Falha ao salvar: ${err.message}`);
+         alert(`Falha ao salvar em "${table}": ${errorMessage}`);
       }
       return false;
     } finally {
