@@ -1,5 +1,5 @@
 
-// v2.2 - Final Fix for Labels
+// v2.3 - Final Label Alignment with Vercel
 import React from 'react';
 import { FileText, HardHat, ClipboardCheck, ArrowRight, History } from 'lucide-react';
 
@@ -16,7 +16,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl w-full">
-        {/* Procedimentos */}
+        {/* Prazos & Fluxo */}
         <div 
           onClick={() => onSelectModule('procedures')}
           className="bg-white rounded-[2.5rem] shadow-2xl p-10 cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-emerald-900/10 border border-slate-100 group flex flex-col items-start"
@@ -24,7 +24,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule }) => {
           <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-8 group-hover:bg-slate-900 transition-all duration-300">
             <History size={36} className="text-slate-900 group-hover:text-white" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Procedimentos</h2>
+          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Prazos & Fluxo</h2>
           <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
             Acompanhamento de 11 etapas, controle de lead time, SLAs e identificação de gargalos.
           </p>
@@ -86,7 +86,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule }) => {
       </div>
       
       <div className="mt-20 text-slate-400 text-[10px] font-black uppercase tracking-widest border-t border-slate-200 pt-8 w-full text-center">
-        &copy; {new Date().getFullYear()} Grupo Resinas Brasil • EcoContract System v2.2
+        &copy; {new Date().getFullYear()} Grupo Resinas Brasil • EcoContract System v2.3
       </div>
     </div>
   );

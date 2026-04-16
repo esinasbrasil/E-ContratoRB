@@ -38,14 +38,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
     { id: 'projects', label: 'Projetos', icon: <Briefcase size={20} /> },
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
-    { id: 'procedures', label: 'Procedimentos', icon: <History size={20} /> },
+    { id: 'procedures', label: 'Prazos & Fluxo', icon: <History size={20} /> },
     { id: 'types', label: 'Tipos de serviço', icon: <CheckSquare size={20} /> },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans select-none" data-version="2.2">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans select-none" data-version="2.3">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -109,7 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
             `}
           >
             <Settings size={20} className="mr-4" />
-            configurações
+            Configurações
           </button>
           
           <button 
