@@ -82,6 +82,39 @@
       },
       "required": ["projectId", "supplierId", "status"]
     },
+    "Procedure": {
+      "title": "Procedure",
+      "description": "A progress tracker for the contracting process with smart deadline control",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["internal", "supplier", "final"] },
+              "standardDurationDays": { "type": "number" },
+              "startDate": { "type": "string" },
+              "limitDate": { "type": "string" },
+              "completedDate": { "type": "string" },
+              "isParallel": { "type": "boolean" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["In Progress", "Completed", "Delayed"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["projectId", "projectName", "steps", "status", "createdAt"]
+    },
     "CompanySettings": {
       "title": "CompanySettings",
       "description": "Global settings for the company",
@@ -115,6 +148,10 @@
     "/contracts/{contractId}": {
       "schema": "Contract",
       "description": "Contracts collection"
+    },
+    "/procedures/{procedureId}": {
+      "schema": "Procedure",
+      "description": "Procedures tracking collection"
     },
     "/company_settings/{settingsId}": {
       "schema": "CompanySettings",

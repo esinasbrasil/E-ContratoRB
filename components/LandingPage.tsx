@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { FileText, HardHat, ClipboardCheck, ArrowRight } from 'lucide-react';
+import { FileText, HardHat, ClipboardCheck, ArrowRight, History } from 'lucide-react';
 
 interface LandingPageProps {
-  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance') => void;
+  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance' | 'procedures') => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule }) => {
@@ -14,7 +14,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule }) => {
         <p className="text-lg text-gray-600">Selecione o módulo de acesso</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl w-full">
+        {/* Procedimentos - NOVO */}
+        <div 
+          onClick={() => onSelectModule('procedures')}
+          className="bg-white rounded-2xl shadow-xl p-8 cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-2xl border-t-4 border-slate-900 group"
+        >
+          <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-slate-900 transition-colors">
+            <History size={32} className="text-slate-900 group-hover:text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">Fluxo & Prazos</h2>
+          <p className="text-gray-500 mb-6">
+            Acompanhamento de 11 etapas, controle de lead time, SLAs e identificação de gargalos.
+          </p>
+          <div className="flex items-center text-slate-900 font-semibold group-hover:translate-x-2 transition-transform">
+            Ver Fluxo <ArrowRight size={20} className="ml-2" />
+          </div>
+        </div>
+
         {/* Contratos */}
         <div 
           onClick={() => onSelectModule('contracts')}

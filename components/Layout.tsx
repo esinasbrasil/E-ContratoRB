@@ -10,7 +10,8 @@ import {
   Settings,
   CheckSquare,
   LogOut,
-  UserCircle
+  UserCircle,
+  History
 } from 'lucide-react';
 import { auth } from '../firebase';
 
@@ -37,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
     { id: 'projects', label: 'Projetos (Simples)', icon: <Briefcase size={20} /> },
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
+    { id: 'procedures', label: 'Procedimentos', icon: <History size={20} /> },
     { id: 'types', label: 'Tipos de Serviço', icon: <CheckSquare size={20} /> },
   ];
 

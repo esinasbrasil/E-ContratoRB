@@ -11,10 +11,11 @@ import UnitManager from './components/UnitManager';
 import ProjectManager from './components/ProjectManager';
 import SupplierManager from './components/SupplierManager';
 import ContractManager from './components/ContractManager';
+import ProcedureManager from './components/ProcedureManager';
 import SettingsManager from './components/SettingsManager';
 import ServiceTypeManager from './components/ServiceTypeManager';
 import LoginPage from './components/LoginPage';
-import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings } from './types';
+import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -86,7 +87,7 @@ const LOGO_RB_FIXO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYA
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance'>('home');
+  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   
@@ -95,6 +96,7 @@ const App: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     companyName: 'GRUPO RESINAS BRASIL',
@@ -140,6 +142,7 @@ const App: React.FC = () => {
     setupListener('units', setUnits);
     setupListener('service_categories', setServiceCategories);
     setupListener('contracts', setContracts, 'createdAt');
+    setupListener('procedures', setProcedures, 'requestDate');
 
     // Settings is a single doc
     const settingsUnsub = onSnapshot(doc(db, 'company_settings', 'global'), (snapshot) => {
@@ -163,6 +166,7 @@ const App: React.FC = () => {
       setUnits(storageService.getUnits());
       setServiceCategories(storageService.getServices());
       setContracts(storageService.getContracts());
+      setProcedures(storageService.getProcedures());
       const settings = storageService.getSettings();
       if (settings) setCompanySettings(settings);
     } catch (error) { console.error("Erro ao sincronizar:", error); }
@@ -276,6 +280,11 @@ const App: React.FC = () => {
         />
       )}
       {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
+      {currentModule === 'procedures' && (
+        <Layout activeTab="procedures" onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
+           <ProcedureManager procedures={procedures} projects={projects} suppliers={suppliers} onAdd={p => saveAction('procedures', p, storageService.saveProcedure)} onUpdate={p => saveAction('procedures', p, storageService.saveProcedure)} onDelete={id => deleteAction('procedures', id, storageService.deleteProcedure)} />
+        </Layout>
+      )}
       {currentModule === 'contracts' && (
         <>
           {contractWizardSupplierId !== null && (
@@ -314,6 +323,7 @@ const App: React.FC = () => {
             {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p, storageService.saveProject)} onUpdate={p => saveAction('projects', p, storageService.saveProject)} onDelete={id => deleteAction('projects', id, storageService.deleteProject)} />}
             {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u, storageService.saveUnit)} onUpdate={u => saveAction('units', u, storageService.saveUnit)} onDelete={id => deleteAction('units', id, storageService.deleteUnit)} />}
             {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id, storageService.deleteContract)} />}
+            {activeTab === 'procedures' && <ProcedureManager procedures={procedures} projects={projects} suppliers={suppliers} onAdd={p => saveAction('procedures', p, storageService.saveProcedure)} onUpdate={p => saveAction('procedures', p, storageService.saveProcedure)} onDelete={id => deleteAction('procedures', id, storageService.deleteProcedure)} />}
             {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c, storageService.saveService)} onDelete={id => deleteAction('service_categories', id, storageService.deleteService)} />}
             {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s, storageService.saveSettings)} onReset={() => { storageService.resetDatabase(); fetchData(); }} onSeed={() => {}} />}
           </Layout>

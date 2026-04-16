@@ -161,6 +161,30 @@ export interface Contract {
   details: ContractRequestData;
 }
 
+export interface ProcessStep {
+  id: string;
+  name: string;
+  type: 'internal' | 'supplier' | 'final';
+  standardDurationDays: number;
+  startDate?: string;
+  limitDate?: string;
+  completedDate?: string;
+  isParallel?: boolean;
+}
+
+export interface Procedure {
+  id: string;
+  user_id?: string;
+  projectId: string;
+  supplierId?: string;
+  projectName: string;
+  supplierName?: string;
+  steps: ProcessStep[];
+  status: 'In Progress' | 'Completed' | 'Delayed';
+  notes?: string;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalSuppliers: number;
   activeProjects: number;

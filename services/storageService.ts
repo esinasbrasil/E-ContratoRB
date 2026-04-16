@@ -1,5 +1,5 @@
 
-import { Supplier, Project, Unit, ServiceCategory, Contract, CompanySettings } from '../types';
+import { Supplier, Project, Unit, ServiceCategory, Contract, CompanySettings, Procedure } from '../types';
 
 const KEYS = {
   SUPPLIERS: 'ecocontract_suppliers',
@@ -7,6 +7,7 @@ const KEYS = {
   UNITS: 'ecocontract_units',
   SERVICES: 'ecocontract_services',
   CONTRACTS: 'ecocontract_contracts',
+  PROCEDURES: 'ecocontract_procedures',
   SETTINGS: 'ecocontract_settings'
 };
 
@@ -108,6 +109,23 @@ export const storageService = {
   deleteContract: (id: string) => {
     const list = get<Contract>(KEYS.CONTRACTS);
     set(KEYS.CONTRACTS, list.filter(c => c.id !== id));
+  },
+
+  // --- Procedures ---
+  getProcedures: (): Procedure[] => get<Procedure>(KEYS.PROCEDURES),
+  saveProcedure: (procedure: Procedure) => {
+    const list = get<Procedure>(KEYS.PROCEDURES);
+    const index = list.findIndex(p => p.id === procedure.id);
+    if (index >= 0) {
+      list[index] = procedure;
+    } else {
+      list.push(procedure);
+    }
+    set(KEYS.PROCEDURES, list);
+  },
+  deleteProcedure: (id: string) => {
+    const list = get<Procedure>(KEYS.PROCEDURES);
+    set(KEYS.PROCEDURES, list.filter(p => p.id !== id));
   },
 
   // --- Settings ---
