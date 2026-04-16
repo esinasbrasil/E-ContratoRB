@@ -6,8 +6,8 @@ import { HardHat, Plus, Save, X, Paperclip, CheckSquare, Calendar, DollarSign, M
 interface EngineeringModuleProps {
   projects: Project[];
   units: Unit[];
-  onAddProject: (p: Project) => void;
-  onUpdateProject: (p: Project) => void;
+  onAdd: (p: Project) => void;
+  onUpdate: (p: Project) => void;
   onBack: () => void;
 }
 
@@ -21,7 +21,7 @@ const NR_LIST: NR[] = [
   { id: 'nr35', number: 'NR-35', name: 'Trabalho em Altura', description: 'Requisitos e medidas de proteção para o trabalho em altura' },
 ];
 
-const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, onAddProject, onUpdateProject, onBack }) => {
+const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, onAdd, onUpdate, onBack }) => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -86,9 +86,9 @@ const EngineeringModule: React.FC<EngineeringModuleProps> = ({ projects, units, 
     };
 
     if (editingId) {
-      onUpdateProject(projectData);
+      onUpdate(projectData);
     } else {
-      onAddProject(projectData);
+      onAdd(projectData);
     }
     setView('list');
   };

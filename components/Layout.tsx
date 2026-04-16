@@ -35,7 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} /> },
     { id: 'suppliers', label: 'Fornecedores', icon: <Users size={20} /> },
-    { id: 'projects', label: 'Projetos (Simples)', icon: <Briefcase size={20} /> },
+    { id: 'projects', label: 'Projetos', icon: <Briefcase size={20} /> },
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
     { id: 'procedures', label: 'Procedimentos', icon: <History size={20} /> },

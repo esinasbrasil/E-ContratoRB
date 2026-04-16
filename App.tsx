@@ -238,21 +238,25 @@ const App: React.FC = () => {
 
   return (
     <>
-      {currentModule === 'home' && <LandingPage onSelectModule={setCurrentModule} />}
+      {currentModule === 'home' && (
+        <LandingPage onSelectModule={(mod) => {
+          if (mod === 'procedures') {
+            setCurrentModule('contracts');
+            setActiveTab('procedures');
+          } else {
+            setCurrentModule(mod);
+          }
+        }} />
+      )}
       {currentModule === 'engineering' && (
         <EngineeringModule 
           projects={projects} units={units} 
-          onAddProject={p => saveAction('projects', p)}
-          onUpdateProject={p => saveAction('projects', p)} 
+          onAdd={p => saveAction('projects', p)}
+          onUpdate={p => saveAction('projects', p)} 
           onBack={() => setCurrentModule('home')}
         />
       )}
       {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
-      {currentModule === 'procedures' && (
-        <Layout activeTab="procedures" onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
-           <ProcedureManager procedures={processos} projects={projects} suppliers={suppliers} onAdd={p => saveAction('processos', p)} onUpdate={p => saveAction('processos', p)} onDelete={id => deleteAction('processos', id)} />
-        </Layout>
-      )}
       {currentModule === 'contracts' && (
         <>
           {contractWizardSupplierId !== null && (
@@ -265,7 +269,13 @@ const App: React.FC = () => {
               />
             </div>
           )}
-          <Layout activeTab={activeTab} onNavigate={(tab) => tab === 'home' ? setCurrentModule('home') : setActiveTab(tab)}>
+          <Layout activeTab={activeTab} onNavigate={(tab) => {
+            if (tab === 'home') {
+              setCurrentModule('home');
+            } else {
+              setActiveTab(tab);
+            }
+          }}>
             <div className="absolute top-4 right-20 z-20">
                <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
                  <LogOut size={14}/> Sair
