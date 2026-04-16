@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "Supplier": {
+      "title": "Supplier",
+      "description": "A supplier homologated in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "address": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "status": { "type": "string", "enum": ["Homologado", "Aguardando", "Bloqueado"] },
+        "rating": { "type": "number" },
+        "docs": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "cnpj", "status"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "An engineering project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "unitId": { "type": "string" },
+        "costCenter": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "description": { "type": "string" },
+        "estimatedValue": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "type": { "type": "string", "enum": ["Improvement", "Adaptation", "Acquisition", "Renovation", "Compliance", "Maintenance", "Other"] },
+        "status": { "type": "string", "enum": ["Active", "Completed", "Planned", "On Hold"] },
+        "attachments": { "type": "array" },
+        "requiredNRs": { "type": "array" }
+      },
+      "required": ["name", "unitId", "status"]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "A business unit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "ie": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name", "cnpj"]
+    },
+    "ServiceCategory": {
+      "title": "ServiceCategory",
+      "description": "A category of service provided by suppliers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "A contract generated in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "value": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Legal Review", "Signed"] },
+        "details": { "type": "object" }
+      },
+      "required": ["projectId", "supplierId", "status"]
+    },
+    "CompanySettings": {
+      "title": "CompanySettings",
+      "description": "Global settings for the company",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "logoBase64": { "type": "string" },
+        "footerText": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "documentTitle": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Suppliers collection"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Projects collection"
+    },
+    "/units/{unitId}": {
+      "schema": "Unit",
+      "description": "Units collection"
+    },
+    "/service_categories/{categoryId}": {
+      "schema": "ServiceCategory",
+      "description": "Service categories collection"
+    },
+    "/contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Contracts collection"
+    },
+    "/company_settings/{settingsId}": {
+      "schema": "CompanySettings",
+      "description": "Company settings collection"
+    }
+  }
+}

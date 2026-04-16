@@ -16,8 +16,70 @@ import ServiceTypeManager from './components/ServiceTypeManager';
 import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings } from './types';
 import { analyzeSupplierRisk } from './services/geminiService';
-import { supabase, isSupabaseConfigured } from './services/supabaseClient';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  setDoc, 
+  doc, 
+  deleteDoc,
+  getDocFromServer
+} from 'firebase/firestore';
 import { storageService } from './services/storageService';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 const LOGO_RB_FIXO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABNmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDAgNzkuMTYwNDUxLCAyMDE3LzA1LzA2LTAxOjA4OjIxICAgICAgICAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIi8+CiA8L3JkZjpSREY+CjwveDp4bXB0YT4KPD94cGFja2V0IGVuZD0idyI/PlS999MAAAAZSURBVHgB7cEBDQAAAMKg909tDwcUAAAAAIB3A08AAAF7v9SRAAAAAElFTkSuQmCC";
 
@@ -49,54 +111,80 @@ const App: React.FC = () => {
 
   const isDemo = session?.user?.id === 'demo';
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setSession(user ? { user } : null);
+      setAuthChecking(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session || isDemo) return;
+
+    const unsubscribers: (() => void)[] = [];
+
+    const setupListener = (colName: string, setter: (data: any) => void, orderField: string = 'name') => {
+      const q = query(collection(db, colName), orderBy(orderField));
+      const unsub = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setter(data);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, colName);
+      });
+      unsubscribers.push(unsub);
+    };
+
+    setupListener('suppliers', setSuppliers);
+    setupListener('projects', setProjects);
+    setupListener('units', setUnits);
+    setupListener('service_categories', setServiceCategories);
+    setupListener('contracts', setContracts, 'createdAt');
+
+    // Settings is a single doc
+    const settingsUnsub = onSnapshot(doc(db, 'company_settings', 'global'), (snapshot) => {
+      if (snapshot.exists()) {
+        setCompanySettings(snapshot.data() as CompanySettings);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'company_settings/global');
+    });
+    unsubscribers.push(settingsUnsub);
+
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [session, isDemo]);
+
   const fetchData = useCallback(async () => {
+    if (!isDemo) return; // Firebase handles real-time
     setLoading(true);
     try {
-      if (isDemo) {
-        setSuppliers(storageService.getSuppliers());
-        setProjects(storageService.getProjects());
-        setUnits(storageService.getUnits());
-        setServiceCategories(storageService.getServices());
-        setContracts(storageService.getContracts());
-        const settings = storageService.getSettings();
-        if (settings) setCompanySettings(settings);
-      } else if (isSupabaseConfigured) {
-        const [
-          { data: s }, { data: p }, { data: u }, { data: cat }, { data: ctr }, { data: settingsData }
-        ] = await Promise.all([
-          supabase.from('suppliers').select('*').order('name'),
-          supabase.from('projects').select('*').order('name'),
-          supabase.from('units').select('*').order('name'),
-          supabase.from('service_categories').select('*').order('name'),
-          supabase.from('contracts').select('*').order('createdAt', { ascending: false }),
-          supabase.from('company_settings').select('*').single()
-        ]);
-        if (s) setSuppliers(s);
-        if (p) setProjects(p);
-        if (u) setUnits(u);
-        if (cat) setServiceCategories(cat);
-        if (ctr) setContracts(ctr);
-        if (settingsData) setCompanySettings(settingsData);
-      }
+      setSuppliers(storageService.getSuppliers());
+      setProjects(storageService.getProjects());
+      setUnits(storageService.getUnits());
+      setServiceCategories(storageService.getServices());
+      setContracts(storageService.getContracts());
+      const settings = storageService.getSettings();
+      if (settings) setCompanySettings(settings);
     } catch (error) { console.error("Erro ao sincronizar:", error); }
     finally { setLoading(false); }
   }, [isDemo]);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const { data: { session: initialSession } } = await (supabase.auth as any).getSession();
-      setSession(initialSession);
-      setAuthChecking(false);
+    // Test connection to Firestore
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
     };
-    initializeAuth();
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => setSession(session));
-    return () => subscription.unsubscribe();
+    testConnection();
   }, []);
 
-  useEffect(() => { if (session) fetchData(); }, [session, fetchData]);
-
   const handleLogout = async () => {
-    await (supabase.auth as any).signOut();
+    await signOut(auth);
     setSession(null);
   };
 
@@ -104,36 +192,26 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       if (isDemo) {
-        try {
-          storageMethod(data);
-          await fetchData();
-          return true;
-        } catch (storageErr: any) {
-          if (storageErr.name === 'QuotaExceededError') {
-            alert("ERRO: Memória cheia. Remova arquivos PDF muito grandes.");
-            return false;
-          }
-          throw storageErr;
-        }
-      } else {
-        const dataWithUser = { ...data };
-        if (session?.user?.id) {
-          dataWithUser.user_id = session.user.id;
-        }
-
-        const { error } = await supabase.from(table).upsert(dataWithUser);
-        
-        if (error) {
-          console.error(`Erro Supabase (${table}):`, error);
-          if (error.message.includes('row-level security policy')) {
-            alert(`ERRO DE PERMISSÃO: O banco de dados Supabase bloqueou a gravação na tabela "${table}".\n\nCOMO CORRIGIR:\n1. Acesse o SQL Editor no Supabase.\n2. Execute: CREATE POLICY "Permitir Tudo" ON ${table} FOR ALL USING (true);`);
-          } else {
-            alert(`Erro ao salvar no banco: ${error.message}`);
-          }
-          return false;
-        }
+        storageMethod(data);
         await fetchData();
         return true;
+      } else {
+        const dataWithUser = { ...data };
+        if (session?.user?.uid) {
+          dataWithUser.user_id = session.user.uid;
+        }
+        
+        // Use document ID if exists, otherwise generate one
+        const docId = data.id || (table === 'company_settings' ? 'global' : crypto.randomUUID());
+        if (!data.id && table !== 'company_settings') dataWithUser.id = docId;
+
+        try {
+          await setDoc(doc(db, table, docId), dataWithUser);
+          return true;
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, `${table}/${docId}`);
+          return false;
+        }
       }
     } catch (err: any) {
       alert(`Falha ao salvar: ${err.message}`);
@@ -163,10 +241,13 @@ const App: React.FC = () => {
     try {
       if (isDemo) storageMethod(id);
       else {
-        const { error } = await supabase.from(table).delete().eq('id', id);
-        if (error) throw error;
+        try {
+          await deleteDoc(doc(db, table, id));
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `${table}/${id}`);
+        }
       }
-      await fetchData();
+      if (isDemo) await fetchData();
     } catch (err: any) { alert(`Erro ao excluir: ${err.message}`); }
     finally { setLoading(false); }
   };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,6 +12,7 @@ import {
   LogOut,
   UserCircle
 } from 'lucide-react';
+import { auth } from '../firebase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,7 +22,14 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userEmail] = useState<string>('Local User');
+  const [userEmail, setUserEmail] = useState<string>('Usuário');
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user?.email) {
+      setUserEmail(user.email);
+    }
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} /> },

@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: suppliers
+    // Fields: id, user_id, name, cnpj, address, serviceType, status, rating, docs
+    //
+    // Collection: projects
+    // Fields: id, user_id, name, unitId, costCenter, orderNumber, description, estimatedValue, startDate, endDate, type, status, attachments, requiredNRs
+    //
+    // Collection: units
+    // Fields: id, user_id, name, address, cnpj, ie, email, phone
+    //
+    // Collection: service_categories
+    // Fields: id, name, description
+    //
+    // Collection: contracts
+    // Fields: id, user_id, projectId, supplierId, value, createdAt, status, details
+    //
+    // Collection: company_settings
+    // Fields: companyName, logoBase64, footerText, primaryColor, documentTitle
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.user_id;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "fernando.campos.gruporb@gmail.com" || 
+         request.auth.token.email == "fecampos120@gmail.com" ||
+         request.auth.uid == "9eKuuQvm28V6b2H7DD23JDQLbLG2");
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidCNPJ(cnpj) {
+      return cnpj is string && cnpj.size() >= 14 && cnpj.size() <= 18;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /units/{unitId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /service_categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /company_settings/{settingsId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

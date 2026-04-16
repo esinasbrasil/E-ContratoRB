@@ -356,7 +356,7 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     }
 
     const mergedPdfBytes = await mergedPdf.save();
-    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([mergedPdfBytes as any], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
