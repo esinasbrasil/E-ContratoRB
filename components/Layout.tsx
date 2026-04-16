@@ -45,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans select-none" data-version="2.2">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -64,12 +64,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
       >
         <div className="flex items-center justify-between p-6 border-b border-emerald-800/30">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
+            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-950/20">
               <FileText className="text-white" size={20} />
             </div>
             <span className="text-xl font-black tracking-tight">EcoContrato</span>
           </div>
-          <button onClick={toggleSidebar} className="lg:hidden text-emerald-200 hover:text-white">
+          <button onClick={toggleSidebar} className="lg:hidden text-emerald-200">
             <X size={24} />
           </button>
         </div>
@@ -128,7 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-8 py-4 bg-white shadow-sm z-10 border-b border-gray-100">
-          <button onClick={toggleSidebar} className="lg:hidden text-gray-400 hover:text-emerald-600">
+          <button onClick={toggleSidebar} className="lg:hidden text-gray-400">
             <Menu size={24} />
           </button>
           <div className="flex items-center space-x-6 ml-auto">
@@ -138,7 +138,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> On-line
               </span>
             </div>
-            <div className="h-11 w-11 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm transition-transform hover:scale-105">
+            <div className="h-11 w-11 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm">
               <UserCircle size={26}/>
             </div>
           </div>
