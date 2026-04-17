@@ -164,6 +164,7 @@ export interface Contract {
 export interface ProcessStep {
   id: string;
   name: string;
+  description?: string;
   type: 'internal' | 'supplier' | 'final';
   standardDurationDays: number;
   startDate?: string | null;
@@ -183,6 +184,11 @@ export interface Procedure {
   status: 'In Progress' | 'Completed' | 'Delayed';
   notes?: string;
   createdAt: string;
+}
+
+export interface ProcedureSettings {
+  id: string;
+  steps: Omit<ProcessStep, 'id'>[];
 }
 
 export interface DashboardStats {

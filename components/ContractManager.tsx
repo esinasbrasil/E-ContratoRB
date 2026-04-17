@@ -1,8 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Contract, Supplier, CompanySettings, Unit } from '../types';
-import { FileText, Download, DollarSign, Building, PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { FileText, Download, DollarSign, Building, PlusCircle, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface ContractManagerProps {
   contracts: Contract[];
@@ -23,13 +25,35 @@ const ContractManager: React.FC<ContractManagerProps> = ({
   onEditContract,
   onDeleteContract
 }) => {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const handleDownload = (contract: Contract) => {
-    const supplier = suppliers.find(s => s.id === contract.supplierId);
-    const unit = units.find(u => u.id === contract.details.unitId) || 
-                 units.find(u => u.name === contract.details.serviceLocation);
-                 
-    mergeAndSavePDF(contract.details, supplier, settings, unit);
+  const handleDownload = async (contract: Contract) => {
+    setDownloadingId(contract.id);
+    try {
+      const supplier = suppliers.find(s => s.id === contract.supplierId);
+      const unit = units.find(u => u.id === contract.details.unitId) || 
+                   units.find(u => u.name === contract.details.serviceLocation);
+      
+      // Buscar anexos pesados da subcoleção, pois o documento principal está "leve"
+      const attachmentsSnapshot = await getDocs(collection(db, `contracts/${contract.id}/attachments`));
+      const fullAttachments = attachmentsSnapshot.docs.map(d => ({
+        name: d.data().name,
+        type: d.data().type,
+        fileData: d.data().fileData
+      }));
+
+      const detailsWithFiles = {
+        ...contract.details,
+        attachments: fullAttachments
+      };
+                   
+      await mergeAndSavePDF(detailsWithFiles, supplier, settings, unit);
+    } catch (err) {
+      console.error("Erro ao preparar download:", err);
+      alert("Erro ao carregar arquivos para o PDF.");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -125,10 +149,11 @@ const ContractManager: React.FC<ContractManagerProps> = ({
                         <div className="flex items-center justify-end gap-2">
                             <button 
                               onClick={() => handleDownload(contract)}
-                              className="inline-flex items-center px-2 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                              disabled={downloadingId === contract.id}
+                              className="inline-flex items-center px-2 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                               title="Baixar PDF"
                             >
-                              <Download size={14} />
+                              {downloadingId === contract.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                             </button>
                             <button 
                               onClick={() => onEditContract(contract)}

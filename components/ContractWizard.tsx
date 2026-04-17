@@ -179,7 +179,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/pdf') { alert("Apenas arquivos PDF são permitidos."); return; }
-      if (file.size > 2 * 1024 * 1024) { alert("Arquivo muito grande. Limite de 2MB por anexo."); return; }
+      if (file.size > 1 * 1024 * 1024) { alert("Arquivo muito grande para salvamento em nuvem. Limite de 1MB por anexo."); return; }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;

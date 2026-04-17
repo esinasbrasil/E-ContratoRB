@@ -28,7 +28,8 @@ import {
   setDoc, 
   doc, 
   deleteDoc,
-  getDocFromServer
+  getDocFromServer,
+  getDocs
 } from 'firebase/firestore';
 
 enum OperationType {
@@ -97,6 +98,7 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [processos, setProcessos] = useState<Procedure[]>([]);
+  const [procedureSettings, setProcedureSettings] = useState<any>(null);
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     companyName: 'GRUPO RESINAS BRASIL',
@@ -157,6 +159,7 @@ const App: React.FC = () => {
     setupListener('service_categories', setServiceCategories);
     setupListener('contracts', setContracts, 'createdAt', 'desc');
     setupListener('processos', setProcessos, 'createdAt', 'desc');
+    setupListener('procedure_settings', (data) => setProcedureSettings(data[0] || null));
 
     // Settings is a single doc
     const settingsUnsub = onSnapshot(doc(db, 'company_settings', 'global'), (snapshot) => {
@@ -228,6 +231,19 @@ const App: React.FC = () => {
 
   const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
      const contractId = editingContract?.id || generateId();
+     
+     // 1. Separar os dados dos arquivos para não estourar o limite de 1MB do Firestore
+     const attachmentsWithData = [...data.attachments];
+     
+     // 2. Criar uma versão "leve" do checklist (sem os base64 pesados) para o documento principal
+     const lightweightDetails = {
+       ...data,
+       attachments: data.attachments.map(att => ({
+         ...att,
+         fileData: "" // Limpamos o dado binário no documento principal
+       }))
+     };
+
      const newContract: Contract = {
        id: contractId, 
        projectId: data.projectId || '', 
@@ -235,9 +251,66 @@ const App: React.FC = () => {
        value, 
        createdAt: editingContract?.createdAt || new Date().toISOString(), 
        status: 'Draft', 
-       details: data
+       details: lightweightDetails
      };
-     return await saveAction('contracts', newContract);
+
+     // 3. Salvar o documento principal do contrato
+     const mainSuccess = await saveAction('contracts', newContract);
+     if (!mainSuccess) return false;
+
+     // 4. Salvar cada anexo individualmente na subcoleção para que cada um tenha seu próprio limite de 1MB
+     try {
+       for (let i = 0; i < attachmentsWithData.length; i++) {
+         const att = attachmentsWithData[i];
+         if (att.fileData) {
+           // Usamos um ID determinístico baseado no tipo para facilitar sobrescrever/atualizar
+           const attId = att.type.replace(/\s+/g, '_');
+           await setDoc(doc(db, `contracts/${contractId}/attachments`, attId), {
+             name: att.name,
+             type: att.type,
+             fileData: att.fileData,
+             updatedAt: new Date().toISOString()
+           });
+         }
+       }
+       return true;
+     } catch (err: any) {
+       console.error("Erro ao salvar anexos na subcoleção:", err);
+       alert("O contrato foi salvo, mas houve um erro ao processar alguns anexos pesados.");
+       return true; // Retornamos true pois o principal foi salvo
+     }
+  };
+
+  const loadContractWithAttachments = async (contract: Contract) => {
+    setLoading(true);
+    try {
+      // Buscar os arquivos da subcoleção
+      const attachmentsSnapshot = await getDocs(collection(db, `contracts/${contract.id}/attachments`));
+      const fullAttachments = attachmentsSnapshot.docs.map(d => ({
+        name: d.data().name,
+        type: d.data().type,
+        fileData: d.data().fileData
+      }));
+
+      // Injetar os arquivos de volta nos detalhes
+      const contractWithFiles = {
+        ...contract,
+        details: {
+          ...contract.details,
+          attachments: fullAttachments
+        }
+      };
+
+      setEditingContract(contractWithFiles);
+      setContractWizardSupplierId(contract.supplierId);
+    } catch (err) {
+      console.error("Erro ao carregar anexos:", err);
+      // Se falhar, carregamos sem anexos mesmo
+      setEditingContract(contract);
+      setContractWizardSupplierId(contract.supplierId);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteAction = async (table: string, id: string) => {
@@ -328,8 +401,29 @@ const App: React.FC = () => {
             )}
             {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p)} onUpdate={p => saveAction('projects', p)} onDelete={id => deleteAction('projects', id)} />}
             {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u)} onUpdate={u => saveAction('units', u)} onDelete={id => deleteAction('units', id)} />}
-            {activeTab === 'contracts' && <ContractManager contracts={contracts} suppliers={suppliers} settings={companySettings} units={units} onOpenWizard={() => setContractWizardSupplierId('new')} onEditContract={(c) => { setEditingContract(c); setContractWizardSupplierId(c.supplierId); }} onDeleteContract={id => deleteAction('contracts', id)} />}
-            {activeTab === 'procedures' && <ProcedureManager procedures={processos} projects={projects} suppliers={suppliers} onAdd={p => saveAction('processos', p)} onUpdate={p => saveAction('processos', p)} onDelete={id => deleteAction('processos', id)} />}
+            {activeTab === 'contracts' && (
+              <ContractManager 
+                contracts={contracts} 
+                suppliers={suppliers} 
+                settings={companySettings} 
+                units={units} 
+                onOpenWizard={() => setContractWizardSupplierId('new')} 
+                onEditContract={loadContractWithAttachments} 
+                onDeleteContract={id => deleteAction('contracts', id)} 
+              />
+            )}
+            {activeTab === 'procedures' && (
+              <ProcedureManager 
+                procedures={processos} 
+                projects={projects} 
+                suppliers={suppliers} 
+                settings={procedureSettings}
+                onSaveSettings={s => saveAction('procedure_settings', s)}
+                onAdd={p => saveAction('processos', p)} 
+                onUpdate={p => saveAction('processos', p)} 
+                onDelete={id => deleteAction('processos', id)} 
+              />
+            )}
             {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
             {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
           </Layout>

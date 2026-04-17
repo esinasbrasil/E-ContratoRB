@@ -20,6 +20,12 @@ service cloud.firestore {
     // Collection: contracts
     // Fields: id, user_id, projectId, supplierId, value, createdAt, status, details
     //
+    // Collection: processos
+    // Fields: id, user_id, projectId, supplierId, projectName, supplierName, steps, status, createdAt
+    //
+    // Collection: procedure_settings
+    // Fields: id, steps
+    //
     // Collection: company_settings
     // Fields: companyName, logoBase64, footerText, primaryColor, documentTitle
     //
@@ -91,11 +97,21 @@ service cloud.firestore {
     match /contracts/{contractId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      
+      match /attachments/{attachmentId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (get(/databases/$(database)/documents/contracts/$(contractId)).data.user_id == request.auth.uid || isAdmin());
+      }
     }
 
     match /processos/{processoId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /procedure_settings/{settingsId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /company_settings/{settingsId} {

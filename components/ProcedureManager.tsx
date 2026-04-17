@@ -20,47 +20,59 @@ import {
   Zap,
   Timer,
   Briefcase,
-  Users
+  Users,
+  Settings,
+  Info,
+  Check,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { Procedure, Project, Supplier, ProcessStep } from '../types';
+import { Procedure, Project, Supplier, ProcessStep, ProcedureSettings } from '../types';
 import { generateId } from '../utils';
 
 interface ProcedureManagerProps {
   procedures: Procedure[];
   projects: Project[];
   suppliers: Supplier[];
+  settings: ProcedureSettings | null;
+  onSaveSettings: (settings: ProcedureSettings) => Promise<boolean>;
   onAdd: (procedure: Procedure) => Promise<boolean>;
   onUpdate: (procedure: Procedure) => Promise<boolean>;
   onDelete: (id: string) => void;
 }
 
-const STANDARD_STEPS: Omit<ProcessStep, 'id'>[] = [
-  { name: 'Definição de Escopo', type: 'internal', standardDurationDays: 60 },
-  { name: 'Estimativa + CC', type: 'internal', standardDurationDays: 5 },
-  { name: 'Abertura da Solicitação', type: 'internal', standardDurationDays: 3 },
-  { name: 'Validação Fornecedores Homol.', type: 'internal', standardDurationDays: 20 },
-  { name: 'Busca Novos Fornecedores', type: 'internal', standardDurationDays: 15 },
-  { name: 'Equalização e Orçamentos', type: 'internal', standardDurationDays: 10 },
-  { name: 'Análise de Propostas', type: 'internal', standardDurationDays: 20 },
-  { name: 'Aprovação do Pedido', type: 'internal', standardDurationDays: 5 },
-  { name: 'Checklist + Assinatura', type: 'internal', standardDurationDays: 7, isParallel: true },
-  { name: 'Doc. Fornecedor (Paralelo)', type: 'supplier', standardDurationDays: 7, isParallel: true },
-  { name: 'Liberação para Execução', type: 'final', standardDurationDays: 1 },
+const DEFAULT_STEPS: Omit<ProcessStep, 'id'>[] = [
+  { name: 'Definição de Escopo', type: 'internal', standardDurationDays: 60, description: 'Fase inicial onde as necessidades do projeto são detalhadas e o escopo técnico é fechado.' },
+  { name: 'Estimativa + CC', type: 'internal', standardDurationDays: 5, description: 'Levantamento de custos e definição do Centro de Custo para o projeto.' },
+  { name: 'Abertura da Solicitação', type: 'internal', standardDurationDays: 3, description: 'Formalização da demanda no sistema interno para início do processo de procurement.' },
+  { name: 'Validação Fornecedores Homol.', type: 'internal', standardDurationDays: 20, description: 'Verificação da base de fornecedores já homologados que atendem ao escopo.' },
+  { name: 'Busca Novos Fornecedores', type: 'internal', standardDurationDays: 15, description: 'Identificação e análise de novos parceiros no mercado para ampliar concorrência.' },
+  { name: 'Equalização e Orçamentos', type: 'internal', standardDurationDays: 10, description: 'Análise comparativa das propostas recebidas para garantir que todos orçaram o mesmo escopo.' },
+  { name: 'Análise de Propostas', type: 'internal', standardDurationDays: 20, description: 'Avaliação técnica e comercial detalhada para seleção da melhor oferta.' },
+  { name: 'Aprovação do Pedido', type: 'internal', standardDurationDays: 5, description: 'Obtenção das assinaturas de diretoria/gerência para o fechamento do negócio.' },
+  { name: 'Checklist + Assinatura', type: 'internal', standardDurationDays: 7, isParallel: true, description: 'Conferência documental e coleta de assinaturas no contrato final.' },
+  { name: 'Doc. Fornecedor (Paralelo)', type: 'supplier', standardDurationDays: 7, isParallel: true, description: 'Coleta de documentações específicas do fornecedor para conformidade.' },
+  { name: 'Liberação para Execução', type: 'final', standardDurationDays: 1, description: 'Entrega da ordem de serviço e autorização para início dos trabalhos em campo.' },
 ];
 
 const ProcedureManager: React.FC<ProcedureManagerProps> = ({ 
   procedures, 
   projects, 
   suppliers,
+  settings,
+  onSaveSettings,
   onAdd, 
   onUpdate, 
   onDelete 
 }) => {
-  const [activeView, setActiveView] = useState<'map' | 'control'>('map');
+  const [activeView, setActiveView] = useState<'map' | 'control' | 'settings'>('control');
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProcedure, setSelectedProcedure] = useState<Procedure | null>(null);
+  const [editingSettings, setEditingSettings] = useState<ProcedureSettings | null>(null);
   
+  const currentSteps = useMemo(() => settings?.steps || DEFAULT_STEPS, [settings]);
+
   const [formData, setFormData] = useState<{
     projectId: string;
     supplierId?: string;
@@ -95,19 +107,13 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
 
   const handleStartProcess = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("ProcedureManager: handleStartProcess called with formData:", formData);
-    
-    if (!formData.projectId || !formData.startDate) {
-      console.warn("ProcedureManager: Missing required fields", formData);
-      return;
-    }
+    if (!formData.projectId || !formData.startDate) return;
 
     const project = projects.find(p => p.id === formData.projectId);
     const supplier = suppliers.find(s => s.id === formData.supplierId);
 
-    const steps: ProcessStep[] = STANDARD_STEPS.map((s, idx) => {
+    const steps: ProcessStep[] = currentSteps.map((s, idx) => {
       const stepId = generateId();
-      // Only the first step starts immediately
       const startDate = idx === 0 ? formData.startDate : null;
       const limitDate = startDate ? addDays(startDate, s.standardDurationDays) : null;
       
@@ -130,14 +136,10 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
       createdAt: new Date().toISOString()
     };
 
-    console.log("ProcedureManager: Attempting to save newProcedure:", newProcedure);
     const success = await onAdd(newProcedure);
     if (success) {
-      console.log("ProcedureManager: Successfully saved procedure");
       setShowAddForm(false);
       setFormData({ projectId: '', startDate: new Date().toISOString().split('T')[0] });
-    } else {
-      console.error("ProcedureManager: Failed to save procedure");
     }
   };
 
@@ -148,43 +150,66 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
 
     updatedSteps[stepIdx].completedDate = finishDate;
 
-    // Start the next step automatically if not parallel/final
+    // Logic to unlock next steps
     if (stepIdx < updatedSteps.length - 1) {
+      const currentStep = updatedSteps[stepIdx];
       const nextStep = updatedSteps[stepIdx + 1];
-      // Special logic for parallelism (9 and 10)
-      if (updatedSteps[stepIdx].name === 'Aprovação do Pedido') {
-          // Starts both 9 and 10
-          updatedSteps[stepIdx + 1].startDate = finishDate;
-          updatedSteps[stepIdx + 1].limitDate = addDays(finishDate, updatedSteps[stepIdx + 1].standardDurationDays);
-          updatedSteps[stepIdx + 2].startDate = finishDate;
-          updatedSteps[stepIdx + 2].limitDate = addDays(finishDate, updatedSteps[stepIdx + 2].standardDurationDays);
-      } else if (!nextStep.startDate) {
-          // Normal sequential flow
-          // If we just finished 9 or 10, wait for both to start 11
-          const step9 = updatedSteps.find(s => s.name === 'Checklist + Assinatura');
-          const step10 = updatedSteps.find(s => s.name === 'Doc. Fornecedor (Paralelo)');
-          
-          if (step9?.completedDate && step10?.completedDate) {
-              const lastFinish = step9.completedDate > step10.completedDate ? step9.completedDate : step10.completedDate;
-              const step11 = updatedSteps.find(s => s.name === 'Liberação para Execução');
-              if (step11 && !step11.startDate) {
-                  step11.startDate = lastFinish;
-                  step11.limitDate = addDays(lastFinish, step11.standardDurationDays);
-              }
-          } else if (stepIdx < 8) {
-              nextStep.startDate = finishDate;
-              nextStep.limitDate = addDays(finishDate, nextStep.standardDurationDays);
+
+      // Special logic for parallelism (9 and 10 in standard 11-step flow)
+      // Usually steps 8 is 'Aprovação do Pedido', 9 is 'Checklist', 10 is 'Doc Fornecedor'
+      if (currentStep.name === 'Aprovação do Pedido') {
+        // Find indices of parallel steps
+        updatedSteps.forEach((s, i) => {
+          if (s.isParallel && !s.startDate) {
+            s.startDate = finishDate;
+            s.limitDate = addDays(finishDate, s.standardDurationDays);
           }
+        });
+      }
+
+      // Check if we can start the next purely sequential step
+      // A step can start if all non-parallel previous steps are done 
+      // AND if parallel steps are required, they are also done.
+      const parallelSteps = updatedSteps.filter(s => s.isParallel);
+      const allParallelDone = parallelSteps.every(s => s.completedDate);
+      
+      const nextNonStarted = updatedSteps.find((s, i) => i > stepIdx && !s.startDate && !s.isParallel);
+      if (nextNonStarted) {
+        const prevIdx = updatedSteps.indexOf(nextNonStarted) - 1;
+        const prevStep = updatedSteps[prevIdx];
+        
+        // If previous is one of parallel, we only start if BOTH parallel are done
+        if (prevStep.isParallel) {
+          if (allParallelDone) {
+            const lastFinish = Math.max(...parallelSteps.map(s => new Date(s.completedDate!).getTime()));
+            nextNonStarted.startDate = new Date(lastFinish).toISOString().split('T')[0];
+            nextNonStarted.limitDate = addDays(nextNonStarted.startDate, nextNonStarted.standardDurationDays);
+          }
+        } else if (prevStep.completedDate) {
+          nextNonStarted.startDate = prevStep.completedDate;
+          nextNonStarted.limitDate = addDays(prevStep.completedDate, nextNonStarted.standardDurationDays);
+        }
       }
     }
 
     const isAllDone = updatedSteps.every(s => s.completedDate);
-    
-    await onUpdate({
+    const updatedProcedure = {
       ...procedure,
       steps: updatedSteps,
-      status: isAllDone ? 'Completed' : 'In Progress'
-    });
+      status: (isAllDone ? 'Completed' : 'In Progress') as any
+    };
+    
+    await onUpdate(updatedProcedure);
+    setSelectedProcedure(updatedProcedure);
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSettings) {
+      await onSaveSettings(editingSettings);
+      setEditingSettings(null);
+      setActiveView('control');
+    }
   };
 
   const filteredProcedures = procedures.filter(p => 
@@ -198,58 +223,8 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
       case 'overdue': return { color: 'bg-red-500', text: 'Atrasado', icon: <AlertCircle size={12} /> };
       case 'near_deadline': return { color: 'bg-orange-500', text: 'Crítico', icon: <Timer size={12} /> };
       case 'on_time': return { color: 'bg-blue-500', text: 'No Prazo', icon: <Clock size={12} /> };
-      default: return { color: 'bg-slate-300', text: 'Não Iniciado', icon: <ChevronRight size={12} /> };
+      default: return { color: 'bg-slate-200', text: 'Não Disponível', icon: <ChevronRight size={12} /> };
     }
-  };
-
-  const StepCard = ({ step, procedure }: { step: ProcessStep, procedure: Procedure }) => {
-    const status = calculateStepStatus(step);
-    const info = getStatusInfo(status);
-    
-    return (
-      <div className={`p-4 rounded-2xl border-2 transition-all ${status === 'completed' ? 'border-emerald-100 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
-        <div className="flex justify-between items-start mb-3">
-          <div className={`${info.color} text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-1`}>
-            {info.icon} {info.text}
-          </div>
-          {step.type === 'internal' ? (
-             <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 rounded-md">Interno</span>
-          ) : step.type === 'supplier' ? (
-             <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 rounded-md">Fornecedor</span>
-          ) : (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 rounded-md">Final</span>
-          )}
-        </div>
-        <h4 className="text-sm font-black text-slate-800 mb-2 leading-tight h-10 line-clamp-2">{step.name}</h4>
-        
-        <div className="space-y-1 mb-4">
-           {step.startDate && (
-             <p className="text-[10px] text-slate-500 flex items-center justify-between font-medium">
-               <span>Início:</span> <span>{new Date(step.startDate).toLocaleDateString()}</span>
-             </p>
-           )}
-           {step.limitDate && !step.completedDate && (
-             <p className={`text-[10px] flex items-center justify-between font-bold ${status === 'overdue' ? 'text-red-500' : 'text-slate-500'}`}>
-               <span>Limite:</span> <span>{new Date(step.limitDate).toLocaleDateString()}</span>
-             </p>
-           )}
-           {step.completedDate && (
-             <p className="text-[10px] text-emerald-600 flex items-center justify-between font-bold">
-               <span>Concluído:</span> <span>{new Date(step.completedDate).toLocaleDateString()}</span>
-             </p>
-           )}
-        </div>
-
-        {!step.completedDate && step.startDate && (
-          <button 
-            onClick={() => updateStepFinish(procedure, step.id, new Date().toISOString().split('T')[0])}
-            className="w-full py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors"
-          >
-            Concluir Etapa
-          </button>
-        )}
-      </div>
-    );
   };
 
   const getLeadTime = (procedure: Procedure) => {
@@ -277,157 +252,354 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
     };
   };
 
+  if (selectedProcedure) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100">
+          <div className="flex justify-between items-start mb-10">
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={() => setSelectedProcedure(null)}
+                className="w-12 h-12 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl flex items-center justify-center transition-all"
+              >
+                <ChevronRight className="rotate-180" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-black text-slate-900">{selectedProcedure.projectName}</h2>
+                <div className="flex items-center gap-4 mt-1">
+                  <span className="text-slate-500 font-bold flex items-center gap-1.5"><Users size={16} /> {selectedProcedure.supplierName || 'Fornecedor Pendente'}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                  <span className="text-emerald-600 font-black flex items-center gap-1.5"><Timer size={16} /> Lead Time: {getLeadTime(selectedProcedure)} Dias</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex bg-slate-100 p-2 rounded-[2rem]">
+               <div className="px-6 py-2 bg-white rounded-[1.5rem] shadow-sm text-xs font-black text-slate-800 uppercase tracking-widest">
+                  Fluxo Operacional
+               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {selectedProcedure.steps.map((step, idx) => {
+              const status = calculateStepStatus(step);
+              const info = getStatusInfo(status);
+              const isLocked = !step.startDate && !step.completedDate;
+
+              return (
+                <div 
+                  key={step.id} 
+                  className={`flex items-stretch gap-6 group relative ${idx < selectedProcedure.steps.length - 1 ? 'pb-4' : ''}`}
+                >
+                  {/* Timeline logic */}
+                  {idx < selectedProcedure.steps.length - 1 && (
+                    <div className={`absolute left-6 top-10 bottom-0 w-1 ${step.completedDate ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
+                  )}
+
+                  {/* Icon/Checkbox column */}
+                  <div className="flex flex-col items-center">
+                    <button 
+                      disabled={isLocked || !!step.completedDate}
+                      onClick={() => updateStepFinish(selectedProcedure, step.id, new Date().toISOString().split('T')[0])}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all border-4 ${
+                        step.completedDate 
+                          ? 'bg-emerald-500 border-emerald-100 text-white' 
+                          : isLocked 
+                            ? 'bg-slate-50 border-slate-50 text-slate-200' 
+                            : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
+                      }`}
+                    >
+                      {step.completedDate ? <Check size={24} strokeWidth={4} /> : idx + 1}
+                    </button>
+                  </div>
+
+                  {/* Content column */}
+                  <div className={`flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center justify-between ${
+                    step.completedDate 
+                      ? 'bg-emerald-50/30 border-emerald-100' 
+                      : isLocked 
+                        ? 'bg-slate-50/50 border-transparent opacity-60' 
+                        : 'bg-white border-slate-100 shadow-lg shadow-slate-100'
+                  }`}>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h4 className={`text-lg font-black transition-colors ${step.completedDate ? 'text-emerald-900' : 'text-slate-800'}`}>
+                          {step.name}
+                        </h4>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                          step.type === 'internal' ? 'bg-blue-50 text-blue-600' : 
+                          step.type === 'supplier' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          {step.type === 'internal' ? 'INTERNO' : step.type === 'supplier' ? 'FORNECEDOR' : 'FINAL'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-6">
+                        {step.limitDate && !step.completedDate && (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Calendar className="text-slate-400" size={14} />
+                            <span className="text-slate-400 font-medium">Prazo Estimado:</span>
+                            <span className={`font-black ${status === 'overdue' ? 'text-red-500' : 'text-slate-700'}`}>
+                              {new Date(step.limitDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {step.completedDate && (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                            <CheckCircle2 size={14} />
+                            <span className="font-medium">Finalizado em:</span>
+                            <span className="font-black">{new Date(step.completedDate).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {!step.completedDate && step.startDate && (
+                      <button 
+                        onClick={() => updateStepFinish(selectedProcedure, step.id, new Date().toISOString().split('T')[0])}
+                        className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-2"
+                      >
+                        Check <Check size={14} />
+                      </button>
+                    )}
+                    
+                    {isLocked && (
+                      <div className="text-slate-300">
+                         <Clock size={20} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div>
           <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-            <Zap className="text-emerald-500" fill="currentColor" /> Gestão de Prazos & Fluxo
+            <Zap className="text-emerald-500" fill="currentColor" /> Monitor de Fluxos
           </h2>
-          <p className="text-slate-500 font-medium">Controle inteligente de lead time e gargalos operacionais</p>
+          <p className="text-slate-500 font-medium tracking-tight">Estratégia e execução de prazos GRUPORB</p>
         </div>
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+        <div className="flex bg-slate-100 p-1.5 rounded-[2rem]">
           <button 
             onClick={() => setActiveView('map')}
-            className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'map' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'map' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            <MapIcon size={16} /> Mapa do Processo
+            <MapIcon size={16} /> Mapa de Fluxo
           </button>
           <button 
             onClick={() => setActiveView('control')}
-            className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'control' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'control' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            <BarChart3 size={16} /> Controle de Prazos
+            <BarChart3 size={16} /> Controle Ativo
+          </button>
+          <button 
+            onClick={() => setActiveView('settings')}
+            className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'settings' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <Settings size={16} /> Ajuste de Datas
           </button>
         </div>
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
-          <Search className="text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Buscar por projeto ou fornecedor..." 
-            className="flex-1 bg-transparent border-none focus:ring-0 text-slate-900 outline-none text-sm font-medium"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <button 
-          onClick={() => setShowAddForm(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-emerald-100"
-        >
-          <Plus size={20} /> Novo Fluxo
-        </button>
-      </div>
-
-      {activeView === 'map' ? (
-        <div className="space-y-8">
-          {filteredProcedures.length === 0 && (
-            <div className="bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-slate-200">
-               <History size={64} className="mx-auto text-slate-200 mb-6" />
-               <h3 className="text-2xl font-black text-slate-400">Nenhum fluxo iniciado</h3>
-               <p className="text-slate-400 mt-2">Clique em "Novo Fluxo" para começar a monitorar um projeto.</p>
-            </div>
-          )}
-          
-          {filteredProcedures.map(proc => {
-            const bottleneck = getBottleneck(proc);
-            return (
-              <div key={proc.id} className="bg-white rounded-[3rem] shadow-2xl border border-slate-50 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
-                       <Briefcase className="text-emerald-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900">{proc.projectName}</h3>
-                      <p className="text-slate-500 font-bold text-sm flex items-center gap-2">
-                         <Users size={14} /> {proc.supplierName || 'Fornecedor Pendente'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <div className="text-right">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lead Time Atual</p>
-                       <p className="text-2xl font-black text-emerald-600">{getLeadTime(proc)} Dias</p>
-                    </div>
-                    <div className="h-12 w-px bg-slate-200"></div>
-                    {bottleneck && (
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gargalo Identificado</p>
-                        <p className={`text-md font-black flex items-center justify-end gap-1 ${bottleneck.isOverdue ? 'text-red-500' : 'text-orange-500'}`}>
-                           {bottleneck.isOverdue && <AlertCircle size={16} />} {bottleneck.days}D em: {bottleneck.step}
-                        </p>
-                      </div>
-                    )}
-                    <button onClick={() => onDelete(proc.id)} className="ml-4 p-3 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-2xl transition-all">
-                       <Trash2 size={20} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                  {proc.steps.map(step => (
-                    <StepCard key={step.id} step={step} procedure={proc} />
-                  ))}
-                </div>
+      {activeView === 'settings' ? (
+        <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-300">
+           <div className="flex justify-between items-center mb-10">
+              <div>
+                 <h3 className="text-2xl font-black text-slate-900">Configuração de Prazos Padrão</h3>
+                 <p className="text-slate-500 font-medium">Defina a duração padrão em dias para cada etapa do processo.</p>
               </div>
-            );
-          })}
+              <Zap className="text-orange-400" size={40} />
+           </div>
+
+           <form onSubmit={handleSaveSettings} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                {(editingSettings?.steps || currentSteps).map((step, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl group hover:bg-white hover:shadow-lg transition-all border-2 border-transparent hover:border-emerald-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400 shadow-sm group-hover:text-emerald-500">
+                        {idx + 1}
+                      </div>
+                      <span className="font-black text-slate-800">{step.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <input 
+                          type="number" 
+                          className="w-20 bg-white border-2 border-slate-200 rounded-xl p-2 text-center font-black text-emerald-600 focus:border-emerald-500 outline-none transition-all"
+                          value={step.standardDurationDays}
+                          onChange={(e) => {
+                             const newSteps = [...(editingSettings?.steps || currentSteps)];
+                             newSteps[idx] = { ...newSteps[idx], standardDurationDays: parseInt(e.target.value) || 0 };
+                             setEditingSettings({ id: settings?.id || 'global', steps: newSteps });
+                          }}
+                       />
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dias</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-10 flex gap-4">
+                <button 
+                  type="submit" 
+                  disabled={!editingSettings}
+                  className="flex-1 bg-slate-900 hover:bg-emerald-600 disabled:bg-slate-200 text-white font-black py-5 rounded-2xl transition-all uppercase tracking-widest text-sm shadow-xl"
+                >
+                  Salvar Configurações Globais
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setEditingSettings(null); setActiveView('control'); }}
+                  className="px-10 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-5 rounded-2xl transition-all uppercase tracking-widest text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+           </form>
+        </div>
+      ) : activeView === 'map' ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+           <div className="bg-emerald-900 text-white p-12 rounded-[4rem] relative overflow-hidden">
+              <div className="relative z-10">
+                 <h2 className="text-4xl font-black mb-4">Mapa de Fluxo Operacional</h2>
+                 <p className="text-emerald-100 text-lg max-w-2xl font-medium leading-relaxed">
+                    Entenda cada etapa do nosso processo de compliance e contratação. Estes prazos são a base da nossa excelência operacional.
+                 </p>
+              </div>
+              <MapIcon size={200} className="absolute -right-10 -bottom-10 text-white/5" />
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {currentSteps.map((step, idx) => (
+                <div key={idx} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group">
+                   <div className="flex justify-between items-start mb-6">
+                      <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-black group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                        {idx + 1}
+                      </div>
+                      <div className="flex flex-col items-end">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
+                         <span className="text-xl font-black text-slate-800">{step.standardDurationDays} Dias</span>
+                      </div>
+                   </div>
+                   <h4 className="text-xl font-black text-slate-900 mb-4">{step.name}</h4>
+                   <p className="text-slate-500 text-sm leading-relaxed font-medium">
+                      {step.description || 'Nenhuma descrição disponível para esta etapa.'}
+                   </p>
+                   <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full ${
+                        step.type === 'internal' ? 'bg-blue-50 text-blue-600' : 
+                        step.type === 'supplier' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+                      }`}>
+                        {step.type === 'internal' ? 'INTERNO' : step.type === 'supplier' ? 'FORNECEDOR' : 'FINAL'}
+                      </span>
+                      {step.isParallel && (
+                        <span className="flex items-center gap-1.5 text-[10px] font-black text-orange-400 uppercase tracking-widest">
+                          <Zap size={14} fill="currentColor" /> Paralelo
+                        </span>
+                      )}
+                   </div>
+                </div>
+              ))}
+           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-           <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Projeto / Fornecedor</th>
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Etapa Atual</th>
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Início</th>
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Prazo (Limite)</th>
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Dias Parado</th>
-                  <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProcedures.map(proc => {
-                  const activeStep = proc.steps.find(s => s.startDate && !s.completedDate);
-                  const status = activeStep ? calculateStepStatus(activeStep) : 'completed';
-                  const info = getStatusInfo(status);
-                  const bottleneck = getBottleneck(proc);
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex gap-4">
+            <div className="flex-1 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+              <Search className="text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Buscar por projeto ou fornecedor..." 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-slate-900 outline-none text-sm font-medium"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={() => setShowAddForm(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-[2rem] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-emerald-100"
+            >
+              <Plus size={20} /> Novo Fluxo
+            </button>
+          </div>
 
-                  return (
-                    <tr key={proc.id} className="border-b border-slate-50 hover:bg-slate-50/30 transition-colors group">
-                      <td className="p-6">
-                        <p className="font-black text-slate-900">{proc.projectName}</p>
-                        <p className="text-xs text-slate-500 font-medium">{proc.supplierName || '-'}</p>
-                      </td>
-                      <td className="p-6 font-bold text-slate-700 text-sm">
-                        {activeStep?.name || 'Processo Concluído'}
-                      </td>
-                      <td className="p-6 text-center text-sm font-bold text-slate-500">
-                        {activeStep?.startDate ? new Date(activeStep.startDate).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="p-6 text-center text-sm font-black text-slate-900">
-                        {activeStep?.limitDate ? new Date(activeStep.limitDate).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="p-6 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-black ${bottleneck && bottleneck.days > 5 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
-                           {bottleneck ? `${bottleneck.days} dias` : '-'}
-                        </span>
-                      </td>
-                      <td className="p-6">
-                         <div className="flex items-center gap-2">
-                           <div className={`w-3 h-3 rounded-full ${info.color} animate-pulse`}></div>
-                           <span className="text-xs font-black uppercase tracking-wider text-slate-700">{info.text}</span>
-                         </div>
+          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Projeto / Fornecedor</th>
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Etapa Atual</th>
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Início</th>
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Prazo (Limite)</th>
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Dias Parado</th>
+                    <th className="p-6 text-[11px] font-black text-slate-400 uppercase tracking-widest">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProcedures.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-20 text-center">
+                        <History size={48} className="mx-auto text-slate-200 mb-4" />
+                        <p className="text-slate-400 font-bold">Nenhum fluxo encontrado</p>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-           </table>
+                  ) : filteredProcedures.map(proc => {
+                    const activeStep = proc.steps.find(s => s.startDate && !s.completedDate);
+                    const status = activeStep ? calculateStepStatus(activeStep) : 'completed';
+                    const info = getStatusInfo(status);
+                    const bottleneck = getBottleneck(proc);
+
+                    return (
+                      <tr key={proc.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                        <td className="p-6">
+                          <p className="font-black text-slate-900">{proc.projectName}</p>
+                          <p className="text-xs text-slate-500 font-medium tracking-tight">{proc.supplierName || 'Fornecedor não vinculado'}</p>
+                        </td>
+                        <td className="p-6">
+                           <div className="flex items-center gap-2 mb-1">
+                              <div className={`w-2 h-2 rounded-full ${info.color}`}></div>
+                              <span className="text-xs font-black text-slate-800">{activeStep?.name || 'Concluído'}</span>
+                           </div>
+                        </td>
+                        <td className="p-6 text-center text-sm font-bold text-slate-500">
+                          {activeStep?.startDate ? new Date(activeStep.startDate).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="p-6 text-center text-sm font-black text-slate-900">
+                          {activeStep?.limitDate ? new Date(activeStep.limitDate).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="p-6 text-center">
+                          <span className={`px-3 py-1 rounded-full text-xs font-black ${bottleneck && bottleneck.days > 5 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                             {bottleneck ? `${bottleneck.days} dias` : '-'}
+                          </span>
+                        </td>
+                        <td className="p-6 flex items-center gap-2">
+                           <button 
+                             onClick={() => setSelectedProcedure(proc)}
+                             className="p-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-2xl transition-all shadow-sm"
+                           >
+                             <ArrowRight size={18} />
+                           </button>
+                           <button 
+                             onClick={() => onDelete(proc.id)}
+                             className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                           >
+                              <Trash2 size={18} />
+                           </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -436,7 +608,7 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
           <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-10 bg-emerald-600 text-white relative">
               <h2 className="text-3xl font-black">Iniciar Novo Procedimento</h2>
-              <p className="text-emerald-100 font-medium mt-1">Este fluxo automatiza 11 etapas de contrato e prazos.</p>
+              <p className="text-emerald-100 font-medium mt-1">Este fluxo automatiza as {currentSteps.length} etapas críticas.</p>
               <button onClick={() => setShowAddForm(false)} className="absolute top-8 right-8 p-3 hover:bg-white/10 rounded-2xl">
                 <X size={24} />
               </button>
@@ -484,7 +656,7 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
                     <Zap size={16} /> Fluxo Inteligente Ativado
                  </h4>
                  <p className="text-emerald-700 text-xs leading-relaxed font-medium">
-                    Ao iniciar, o sistema calculará automaticamente o <strong>Lead Time total</strong> e as datas limite para cada uma das 11 etapas do processo GRUPORB.
+                    O sistema calculará automaticamente o <strong>Lead Time total</strong> e as datas limite para cada etapa com base nas configurações globais atuais.
                  </p>
               </div>
 
