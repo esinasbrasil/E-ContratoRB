@@ -27,6 +27,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Procedure, Project, Supplier, ProcessStep, ProcedureSettings } from '../types';
 import { generateId } from '../utils';
 
@@ -466,48 +467,130 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
            </form>
         </div>
       ) : activeView === 'map' ? (
-        <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
-           <div className="bg-emerald-900 text-white p-12 rounded-[4rem] relative overflow-hidden">
+        <div className="space-y-12 animate-in fade-in slide-in-from-left-4 duration-500">
+           <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white p-12 rounded-[4rem] relative overflow-hidden shadow-2xl">
               <div className="relative z-10">
-                 <h2 className="text-4xl font-black mb-4">Mapa de Fluxo Operacional</h2>
-                 <p className="text-emerald-100 text-lg max-w-2xl font-medium leading-relaxed">
-                    Entenda cada etapa do nosso processo de compliance e contratação. Estes prazos são a base da nossa excelência operacional.
+                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 mb-6 backdrop-blur-sm">
+                    <Zap size={16} className="text-emerald-400" fill="currentColor" />
+                    <span className="text-xs font-black uppercase tracking-widest">Excelência Operacional</span>
+                 </div>
+                 <h2 className="text-5xl font-black mb-6 tracking-tight">Mapa de Fluxo Operacional</h2>
+                 <p className="text-emerald-100 text-xl max-w-2xl font-medium leading-relaxed opacity-80">
+                    Nossa metodologia exclusiva de 11 etapas garante transparência, compliance e agilidade na contratação de serviços técnicos GRUPORB.
                  </p>
               </div>
-              <MapIcon size={200} className="absolute -right-10 -bottom-10 text-white/5" />
+              <MapIcon size={300} className="absolute -right-20 -bottom-20 text-white/5 rotate-12" />
+              
+              {/* Decorative elements */}
+              <div className="absolute top-10 right-20 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-20 left-1/2 w-64 h-64 bg-emerald-400/10 rounded-full blur-3xl"></div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {currentSteps.map((step, idx) => (
-                <div key={idx} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group">
-                   <div className="flex justify-between items-start mb-6">
-                      <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-black group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                        {idx + 1}
-                      </div>
-                      <div className="flex flex-col items-end">
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duração</span>
-                         <span className="text-xl font-black text-slate-800">{step.standardDurationDays} Dias</span>
-                      </div>
-                   </div>
-                   <h4 className="text-xl font-black text-slate-900 mb-4">{step.name}</h4>
-                   <p className="text-slate-500 text-sm leading-relaxed font-medium">
-                      {step.description || 'Nenhuma descrição disponível para esta etapa.'}
-                   </p>
-                   <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full ${
-                        step.type === 'internal' ? 'bg-blue-50 text-blue-600' : 
-                        step.type === 'supplier' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+           <div className="relative max-w-5xl mx-auto px-4">
+              {/* Central Line */}
+              <div className="absolute left-[30px] md:left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 via-emerald-100 to-transparent md:-translate-x-1/2 opacity-20 hidden md:block"></div>
+
+              <div className="space-y-12">
+                {currentSteps.map((step, idx) => {
+                  // Dynamic icon selection based on step name
+                  const getIcon = (name: string) => {
+                    if (name.includes('Escopo')) return <ClipboardList className="w-6 h-6" />;
+                    if (name.includes('Estimativa')) return <BarChart3 className="w-6 h-6" />;
+                    if (name.includes('Solicitação')) return <Plus className="w-6 h-6" />;
+                    if (name.includes('Homol')) return <CheckCircle2 className="w-6 h-6" />;
+                    if (name.includes('Busca')) return <Search className="w-6 h-6" />;
+                    if (name.includes('Equalização')) return <BarChart3 className="w-6 h-6" />;
+                    if (name.includes('Análise')) return <Search className="w-6 h-6" />;
+                    if (name.includes('Aprovação')) return <CheckCircle2 className="w-6 h-6" />;
+                    if (name.includes('Checklist')) return <ClipboardList className="w-6 h-6" />;
+                    if (name.includes('Doc. Fornecedor')) return <Users className="w-6 h-6" />;
+                    if (name.includes('Liberação')) return <CheckCircle2 className="w-6 h-6" />;
+                    return <ArrowRight className="w-6 h-6" />;
+                  };
+
+                  const isEven = idx % 2 === 0;
+
+                  return (
+                    <motion.div 
+                      key={idx}
+                      initial={{ opacity: 0, x: isEven ? -50 : 50 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, margin: "-100px" }}
+                      transition={{ duration: 0.6, delay: 0.1 }}
+                      className={`flex flex-col md:flex-row items-center gap-8 ${isEven ? 'md:flex-row' : 'md:flex-row-reverse text-right'}`}
+                    >
+                      {/* Card Section */}
+                      <div className={`flex-1 w-full bg-white p-8 rounded-[3rem] shadow-xl border-2 transition-all hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98] ${
+                        step.type === 'internal' ? 'border-blue-50' : 
+                        step.type === 'supplier' ? 'border-orange-50' : 'border-emerald-50'
                       }`}>
-                        {step.type === 'internal' ? 'INTERNO' : step.type === 'supplier' ? 'FORNECEDOR' : 'FINAL'}
-                      </span>
-                      {step.isParallel && (
-                        <span className="flex items-center gap-1.5 text-[10px] font-black text-orange-400 uppercase tracking-widest">
-                          <Zap size={14} fill="currentColor" /> Paralelo
-                        </span>
-                      )}
-                   </div>
-                </div>
-              ))}
+                         <div className={`flex items-center gap-4 mb-4 ${!isEven && 'md:flex-row-reverse'}`}>
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${
+                              step.type === 'internal' ? 'bg-blue-600' : 
+                              step.type === 'supplier' ? 'bg-orange-500' : 'bg-emerald-600'
+                            }`}>
+                              {getIcon(step.name)}
+                            </div>
+                            <div>
+                               <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                                 step.type === 'internal' ? 'text-blue-500' : 
+                                 step.type === 'supplier' ? 'text-orange-500' : 'text-emerald-500'
+                               }`}>
+                                  {step.type === 'internal' ? 'Interno' : step.type === 'supplier' ? 'Fornecedor' : 'Final'}
+                               </span>
+                               <h4 className="text-xl font-black text-slate-900">{step.name}</h4>
+                            </div>
+                         </div>
+                         <p className={`text-slate-500 text-sm leading-relaxed font-medium mb-6 ${!isEven && 'md:text-right'}`}>
+                            {step.description || 'Nenhuma descrição disponível para esta etapa.'}
+                         </p>
+                         <div className={`flex items-center gap-4 ${!isEven && 'md:justify-end'}`}>
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+                               <Timer size={14} className="text-slate-400" />
+                               <span className="text-xs font-black text-slate-700">{step.standardDurationDays} Dias Padrão</span>
+                            </div>
+                            {step.isParallel && (
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100">
+                                 <Zap size={14} className="text-orange-500" fill="currentColor" />
+                                 <span className="text-xs font-black text-orange-600 uppercase tracking-widest text-[10px]">Paralelo</span>
+                              </div>
+                            )}
+                         </div>
+                      </div>
+
+                      {/* Timeline Marker */}
+                      <div className="relative z-20 flex flex-col items-center">
+                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-xl shadow-xl ring-8 ${
+                            step.type === 'internal' ? 'bg-blue-600 ring-blue-50' : 
+                            step.type === 'supplier' ? 'bg-orange-500 ring-orange-50' : 'bg-emerald-600 ring-emerald-50'
+                         }`}>
+                           {idx + 1}
+                         </div>
+                         {idx < currentSteps.length - 1 && (
+                            <div className="md:hidden w-1 h-12 bg-slate-100 mt-2"></div>
+                         )}
+                      </div>
+
+                      {/* Spacer for empty side */}
+                      <div className="hidden md:block flex-1"></div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Success Final Indicator */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.5 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="mt-20 flex flex-col items-center text-center"
+              >
+                 <div className="w-24 h-24 bg-emerald-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-emerald-200 mb-6 rotate-12">
+                    <CheckCircle2 size={48} />
+                 </div>
+                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-widest leading-none">Processo Finalizado</h3>
+                 <p className="text-slate-400 font-bold mt-2">Pronto para execução eficiente em campo</p>
+              </motion.div>
            </div>
         </div>
       ) : (

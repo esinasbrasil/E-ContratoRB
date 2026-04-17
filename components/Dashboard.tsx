@@ -12,7 +12,8 @@ import {
   Cell
 } from 'recharts';
 import { DashboardStats, SupplierStatus, Project } from '../types';
-import { Users, FileText, Briefcase, AlertTriangle, Calendar, ArrowRight } from 'lucide-react';
+import { Users, FileText, Briefcase, AlertTriangle, Calendar, ArrowRight, Info } from 'lucide-react';
+import ProcessInfographic from './ProcessInfographic';
 
 interface DashboardProps {
   stats: DashboardStats;
@@ -42,6 +43,7 @@ const StatCard: React.FC<{
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ stats, suppliersData, projectsData = [] }) => {
+  const [showInfographic, setShowInfographic] = React.useState(true);
   const statusCounts = suppliersData.reduce((acc, curr) => {
     acc[curr.status] = (acc[curr.status] || 0) + 1;
     return acc;
@@ -60,7 +62,16 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, suppliersData, projectsDat
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Visão Geral</h1>
-        <div className="text-sm text-gray-500">Última atualização: Hoje, {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setShowInfographic(!showInfographic)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full transition-colors"
+          >
+            <Info size={14} />
+            {showInfographic ? 'Ocultar Fluxo' : 'Como Funciona?'}
+          </button>
+          <div className="text-sm text-gray-500">Última atualização: Hoje, {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -91,6 +102,8 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, suppliersData, projectsDat
           trend="Ação necessária"
         />
       </div>
+
+      {showInfographic && <ProcessInfographic />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Gráfico de Status */}
