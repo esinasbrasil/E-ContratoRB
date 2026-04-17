@@ -73,6 +73,30 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
   const [editingSettings, setEditingSettings] = useState<ProcedureSettings | null>(null);
   
   const currentSteps = useMemo(() => settings?.steps || DEFAULT_STEPS, [settings]);
+  
+  const calculateTotalLeadTime = (steps: Omit<ProcessStep, 'id'>[]) => {
+    let total = 0;
+    let i = 0;
+    while (i < steps.length) {
+      if (steps[i].isParallel) {
+        let maxParallel = 0;
+        while (i < steps.length && steps[i].isParallel) {
+          maxParallel = Math.max(maxParallel, steps[i].standardDurationDays);
+          i++;
+        }
+        total += maxParallel;
+      } else {
+        total += steps[i].standardDurationDays;
+        i++;
+      }
+    }
+    return total;
+  };
+
+  const totalLeadTime = useMemo(() => {
+    const stepsToCalc = editingSettings?.steps || currentSteps;
+    return calculateTotalLeadTime(stepsToCalc);
+  }, [editingSettings, currentSteps]);
 
   const [formData, setFormData] = useState<{
     projectId: string;
@@ -413,12 +437,23 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
 
       {activeView === 'settings' ? (
         <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-300">
-           <div className="flex justify-between items-center mb-10">
+           <div className="flex justify-between items-start mb-10">
               <div>
                  <h3 className="text-2xl font-black text-slate-900">Configuração de Prazos Padrão</h3>
                  <p className="text-slate-500 font-medium">Defina a duração padrão em dias para cada etapa do processo.</p>
               </div>
-              <Zap className="text-orange-400" size={40} />
+              <div className="bg-emerald-50 px-8 py-5 rounded-3xl border border-emerald-100 text-center shadow-sm">
+                 <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Lead Time Total</span>
+                 <div className="flex items-center gap-2 justify-center">
+                    <span className="text-4xl font-black text-slate-900">{totalLeadTime}</span>
+                    <span className="text-lg font-black text-emerald-600">Dias</span>
+                 </div>
+                 <div className="mt-1 pt-1 border-t border-emerald-100">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                       ≈ {(totalLeadTime / 30).toFixed(1)} Meses
+                    </span>
+                 </div>
+              </div>
            </div>
 
            <form onSubmit={handleSaveSettings} className="space-y-4">
@@ -469,15 +504,30 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
       ) : activeView === 'map' ? (
         <div className="space-y-12 animate-in fade-in slide-in-from-left-4 duration-500">
            <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white p-12 rounded-[4rem] relative overflow-hidden shadow-2xl">
-              <div className="relative z-10">
-                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 mb-6 backdrop-blur-sm">
-                    <Zap size={16} className="text-emerald-400" fill="currentColor" />
-                    <span className="text-xs font-black uppercase tracking-widest">Excelência Operacional</span>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative z-10">
+                 <div className="flex-1">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 mb-6 backdrop-blur-sm">
+                       <Zap size={16} className="text-emerald-400" fill="currentColor" />
+                       <span className="text-xs font-black uppercase tracking-widest">Excelência Operacional</span>
+                    </div>
+                    <h2 className="text-5xl font-black mb-6 tracking-tight">Mapa de Fluxo Operacional</h2>
+                    <p className="text-emerald-100 text-xl max-w-2xl font-medium leading-relaxed opacity-80">
+                       Nossa metodologia exclusiva de 11 etapas garante transparência, compliance e agilidade na contratação de serviços técnicos GRUPORB.
+                    </p>
                  </div>
-                 <h2 className="text-5xl font-black mb-6 tracking-tight">Mapa de Fluxo Operacional</h2>
-                 <p className="text-emerald-100 text-xl max-w-2xl font-medium leading-relaxed opacity-80">
-                    Nossa metodologia exclusiva de 11 etapas garante transparência, compliance e agilidade na contratação de serviços técnicos GRUPORB.
-                 </p>
+                 
+                 <div className="bg-[#eefcf6] px-10 py-7 rounded-[2.5rem] text-center shadow-2xl shrink-0 border border-emerald-100/30 animate-in zoom-in duration-500 delay-200">
+                    <span className="text-[11px] font-black text-[#008a65] uppercase tracking-[0.2em] block mb-1">Lead Time Total</span>
+                    <div className="flex items-center gap-2 justify-center">
+                       <span className="text-6xl font-black text-[#0f172a] leading-none tracking-tighter">{totalLeadTime}</span>
+                       <span className="text-2xl font-black text-[#008a65]">Dias</span>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-[#008a65]/10">
+                       <span className="text-sm font-black text-slate-400 uppercase tracking-[0.1em]">
+                          ≈ {(totalLeadTime / 30).toFixed(1)} Meses
+                       </span>
+                    </div>
+                 </div>
               </div>
               <MapIcon size={300} className="absolute -right-20 -bottom-20 text-white/5 rotate-12" />
               
