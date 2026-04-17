@@ -71,6 +71,8 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProcedure, setSelectedProcedure] = useState<Procedure | null>(null);
   const [editingSettings, setEditingSettings] = useState<ProcedureSettings | null>(null);
+  const [checkingStepId, setCheckingStepId] = useState<string | null>(null);
+  const [tempDate, setTempDate] = useState<string>('');
   
   const currentSteps = useMemo(() => settings?.steps || DEFAULT_STEPS, [settings]);
   
@@ -228,6 +230,30 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
     setSelectedProcedure(updatedProcedure);
   };
 
+  const handleUndoStep = async (procedure: Procedure, stepId: string) => {
+    const updatedSteps = [...procedure.steps];
+    const stepIdx = updatedSteps.findIndex(s => s.id === stepId);
+    if (stepIdx === -1) return;
+
+    // Clear completed date for this step and reset all following steps
+    for (let i = stepIdx; i < updatedSteps.length; i++) {
+      updatedSteps[i].completedDate = null;
+      if (i > stepIdx) {
+        updatedSteps[i].startDate = null;
+        updatedSteps[i].limitDate = null;
+      }
+    }
+
+    const updatedProcedure = {
+      ...procedure,
+      steps: updatedSteps,
+      status: 'In Progress' as any
+    };
+    
+    await onUpdate(updatedProcedure);
+    setSelectedProcedure(updatedProcedure);
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingSettings) {
@@ -371,29 +397,94 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
                           </div>
                         )}
                         {step.completedDate && (
-                          <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                            <CheckCircle2 size={14} />
-                            <span className="font-medium">Finalizado em:</span>
-                            <span className="font-black">{new Date(step.completedDate).toLocaleDateString()}</span>
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="flex items-center gap-1.5 text-emerald-600">
+                              <CheckCircle2 size={14} />
+                              <span className="font-medium">Finalizado em:</span>
+                              <span className="font-black">{new Date(step.completedDate).toLocaleDateString()}</span>
+                            </div>
+                            {step.limitDate && (
+                              <div className={`px-2 py-0.5 rounded-md font-black uppercase text-[9px] ${
+                                new Date(step.completedDate) <= new Date(step.limitDate)
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-red-100 text-red-700'
+                              }`}>
+                                {new Date(step.completedDate) <= new Date(step.limitDate) ? (
+                                  new Date(step.completedDate).getTime() === new Date(step.limitDate).getTime() 
+                                    ? 'No Prazo' 
+                                    : 'Adiantado'
+                                ) : 'Atrasado'}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {!step.completedDate && step.startDate && (
-                      <button 
-                        onClick={() => updateStepFinish(selectedProcedure, step.id, new Date().toISOString().split('T')[0])}
-                        className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-2"
-                      >
-                        Check <Check size={14} />
-                      </button>
-                    )}
-                    
-                    {isLocked && (
-                      <div className="text-slate-300">
-                         <Clock size={20} />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {checkingStepId === step.id ? (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                          <input 
+                            type="date"
+                            autoFocus
+                            className="bg-slate-50 border-2 border-slate-200 rounded-lg p-2 text-xs font-bold outline-none focus:border-emerald-500"
+                            value={tempDate}
+                            onChange={(e) => setTempDate(e.target.value)}
+                          />
+                          <button 
+                            onClick={() => {
+                              if (tempDate) {
+                                updateStepFinish(selectedProcedure, step.id, tempDate);
+                                setCheckingStepId(null);
+                              }
+                            }}
+                            className="p-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-black text-[10px]"
+                          >
+                            SALVAR
+                          </button>
+                          <button 
+                            onClick={() => setCheckingStepId(null)}
+                            className="p-2.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-all font-black text-[10px]"
+                          >
+                            X
+                          </button>
+                        </div>
+                      ) : !step.completedDate && step.startDate ? (
+                        <button 
+                          onClick={() => {
+                            setCheckingStepId(step.id);
+                            setTempDate(new Date().toISOString().split('T')[0]);
+                          }}
+                          className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg hover:shadow-emerald-100"
+                        >
+                          Check <Check size={14} />
+                        </button>
+                      ) : step.completedDate ? (
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => {
+                              setCheckingStepId(step.id);
+                              setTempDate(step.completedDate || '');
+                            }}
+                            className="p-2.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                            title="Editar data"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleUndoStep(selectedProcedure, step.id)}
+                            className="p-2.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-red-50 hover:text-red-500 transition-all"
+                            title="Desfazer check"
+                          >
+                            <History size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-slate-300">
+                           <Clock size={20} />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
