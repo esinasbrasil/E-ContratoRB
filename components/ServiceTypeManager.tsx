@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ServiceCategory } from '../types';
+import { generateId } from '../utils';
 import { Plus, Trash2, CheckSquare, Layers } from 'lucide-react';
 
 interface ServiceTypeManagerProps {
@@ -18,7 +19,7 @@ const ServiceTypeManager: React.FC<ServiceTypeManagerProps> = ({ services, onAdd
 
     try {
         const newService: ServiceCategory = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           name: name.trim(),
           description: description.trim()
         };

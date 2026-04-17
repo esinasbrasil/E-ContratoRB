@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Project, Unit } from '../types';
+import { generateId } from '../utils';
 import { Plus, Trash2, Briefcase, Calendar, DollarSign, Pencil, X, MapPin, Hash, Search, Filter, Tag } from 'lucide-react';
 
 interface ProjectManagerProps {
@@ -34,7 +35,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
     if (!formData.name || !formData.unitId) return;
 
     const projectData: Project = {
-      id: editingId || crypto.randomUUID(),
+      id: editingId || generateId(),
       name: formData.name,
       unitId: formData.unitId,
       costCenter: formData.costCenter || '',

@@ -166,9 +166,9 @@ export interface ProcessStep {
   name: string;
   type: 'internal' | 'supplier' | 'final';
   standardDurationDays: number;
-  startDate?: string;
-  limitDate?: string;
-  completedDate?: string;
+  startDate?: string | null;
+  limitDate?: string | null;
+  completedDate?: string | null;
   isParallel?: boolean;
 }
 
@@ -176,9 +176,9 @@ export interface Procedure {
   id: string;
   user_id?: string;
   projectId: string;
-  supplierId?: string;
+  supplierId?: string | null;
   projectName: string;
-  supplierName?: string;
+  supplierName?: string | null;
   steps: ProcessStep[];
   status: 'In Progress' | 'Completed' | 'Delayed';
   notes?: string;

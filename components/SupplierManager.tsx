@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Supplier, SupplierStatus, ServiceCategory } from '../types';
+import { generateId } from '../utils';
 import { 
   Plus, 
   Search, 
@@ -85,7 +86,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
 
     try {
         const supplierData: Supplier = {
-          id: editingId || crypto.randomUUID(),
+          id: editingId || generateId(),
           name: formData.name,
           cnpj: formData.cnpj,
           address: formData.address || '',

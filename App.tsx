@@ -16,6 +16,7 @@ import SettingsManager from './components/SettingsManager';
 import ServiceTypeManager from './components/ServiceTypeManager';
 import LoginPage from './components/LoginPage';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure } from './types';
+import { generateId, cleanObject } from './utils';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
@@ -112,7 +113,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setSession(user ? { user } : null);
+      if (user) {
+        setSession({ 
+          user: { 
+            uid: user.uid, 
+            email: user.email, 
+            displayName: user.displayName 
+          } 
+        });
+      } else {
+        setSession(null);
+      }
       setAuthChecking(false);
     });
     return () => unsubscribe();
@@ -179,13 +190,6 @@ const App: React.FC = () => {
     setSession(null);
   };
 
-  const generateId = () => {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-    return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-  };
-
   const saveAction = async (table: string, data: any): Promise<boolean> => {
     setLoading(true);
     console.log(`Iniciando salvamento em ${table}:`, data);
@@ -200,7 +204,8 @@ const App: React.FC = () => {
         dataWithUser.id = docId;
       }
 
-      await setDoc(doc(db, table, docId), dataWithUser);
+      const cleanedData = cleanObject(dataWithUser);
+      await setDoc(doc(db, table, docId), cleanedData);
       console.log(`Documento salvo com sucesso em ${table}/${docId}`);
       return true;
     } catch (err: any) {
@@ -222,7 +227,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveContract = async (data: ContractRequestData, supplierId: string, value: number): Promise<boolean> => {
-     const contractId = editingContract?.id || crypto.randomUUID();
+     const contractId = editingContract?.id || generateId();
      const newContract: Contract = {
        id: contractId, 
        projectId: data.projectId || '', 

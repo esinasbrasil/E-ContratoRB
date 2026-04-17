@@ -23,6 +23,7 @@ import {
   Users
 } from 'lucide-react';
 import { Procedure, Project, Supplier, ProcessStep } from '../types';
+import { generateId } from '../utils';
 
 interface ProcedureManagerProps {
   procedures: Procedure[];
@@ -94,16 +95,21 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
 
   const handleStartProcess = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.projectId || !formData.startDate) return;
+    console.log("ProcedureManager: handleStartProcess called with formData:", formData);
+    
+    if (!formData.projectId || !formData.startDate) {
+      console.warn("ProcedureManager: Missing required fields", formData);
+      return;
+    }
 
     const project = projects.find(p => p.id === formData.projectId);
     const supplier = suppliers.find(s => s.id === formData.supplierId);
 
     const steps: ProcessStep[] = STANDARD_STEPS.map((s, idx) => {
-      const stepId = crypto.randomUUID();
+      const stepId = generateId();
       // Only the first step starts immediately
-      const startDate = idx === 0 ? formData.startDate : undefined;
-      const limitDate = startDate ? addDays(startDate, s.standardDurationDays) : undefined;
+      const startDate = idx === 0 ? formData.startDate : null;
+      const limitDate = startDate ? addDays(startDate, s.standardDurationDays) : null;
       
       return {
         ...s,
@@ -114,20 +120,24 @@ const ProcedureManager: React.FC<ProcedureManagerProps> = ({
     });
 
     const newProcedure: Procedure = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       projectId: formData.projectId,
-      supplierId: formData.supplierId,
+      supplierId: formData.supplierId || null,
       projectName: project?.name || 'Projeto Desconhecido',
-      supplierName: supplier?.name,
+      supplierName: supplier?.name || null,
       steps,
       status: 'In Progress',
       createdAt: new Date().toISOString()
     };
 
+    console.log("ProcedureManager: Attempting to save newProcedure:", newProcedure);
     const success = await onAdd(newProcedure);
     if (success) {
+      console.log("ProcedureManager: Successfully saved procedure");
       setShowAddForm(false);
       setFormData({ projectId: '', startDate: new Date().toISOString().split('T')[0] });
+    } else {
+      console.error("ProcedureManager: Failed to save procedure");
     }
   };
 

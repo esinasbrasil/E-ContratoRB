@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Unit } from '../types';
+import { generateId } from '../utils';
 import { Plus, Trash2, Building2, MapPin, Phone, Mail, FileText, Pencil, X, Loader2 } from 'lucide-react';
 
 interface UnitManagerProps {
@@ -29,7 +30,7 @@ const UnitManager: React.FC<UnitManagerProps> = ({ units, onAdd, onUpdate, onDel
 
     try {
         let unitData: Unit = {
-          id: editingId || crypto.randomUUID(),
+          id: editingId || generateId(),
           name: formData.name,
           cnpj: formData.cnpj,
           address: formData.address || '',
