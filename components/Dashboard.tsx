@@ -12,7 +12,7 @@ import {
   Cell
 } from 'recharts';
 import { DashboardStats, SupplierStatus, Project } from '../types';
-import { Users, FileText, Briefcase, AlertTriangle, Calendar, ArrowRight, Info } from 'lucide-react';
+import { Users, FileText, Briefcase, AlertTriangle, Calendar, ArrowRight, Info, ShieldAlert, Clock, Bell } from 'lucide-react';
 import ProcessInfographic from './ProcessInfographic';
 
 interface DashboardProps {
@@ -106,6 +106,23 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, suppliersData, projectsDat
       {showInfographic && <ProcessInfographic />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Alertas de Compliance */}
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-center gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2">
+             <Bell className="text-red-100" size={48} />
+          </div>
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
+             <ShieldAlert size={32} />
+          </div>
+          <div className="flex-1">
+             <h2 className="text-lg font-bold text-red-900 leading-tight">Alertas de Vencimento de Documentos</h2>
+             <p className="text-sm text-red-600 font-medium opacity-80">Existem 3 fornecedores com documentos de segurança vencendo nos próximos 15 dias.</p>
+          </div>
+          <div className="flex gap-3">
+             <div className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-red-700 transition-all">Ver Detalhes</div>
+          </div>
+        </div>
+
         {/* Gráfico de Status */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Status dos Fornecedores</h2>

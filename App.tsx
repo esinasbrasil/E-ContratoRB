@@ -14,8 +14,11 @@ import ContractManager from './components/ContractManager';
 import ProcedureManager from './components/ProcedureManager';
 import SettingsManager from './components/SettingsManager';
 import ServiceTypeManager from './components/ServiceTypeManager';
+import PortariaPanel from './components/PortariaPanel';
+import SupplierPortal from './components/SupplierPortal';
+import AccessManagement from './components/AccessManagement';
 import LoginPage from './components/LoginPage';
-import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure } from './types';
+import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, AppTab } from './types';
 import { generateId, cleanObject } from './utils';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
@@ -88,7 +91,7 @@ const LOGO_RB_FIXO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYA
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures'>('home');
+  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   
@@ -357,7 +360,29 @@ const App: React.FC = () => {
           onBack={() => setCurrentModule('home')}
         />
       )}
-      {currentModule === 'compliance' && <SupplierCompliance onBack={() => setCurrentModule('home')} />}
+      {currentModule === 'compliance' && (
+        <SupplierCompliance 
+          suppliers={suppliers}
+          units={units}
+          projects={projects}
+          settings={companySettings}
+          onBack={() => setCurrentModule('home')} 
+        />
+      )}
+      {currentModule === 'portaria' && (
+        <PortariaPanel 
+          suppliers={suppliers}
+          contracts={contracts}
+          onBack={() => setCurrentModule('home')}
+        />
+      )}
+      {currentModule === 'portal' && (
+        <SupplierPortal 
+          suppliers={suppliers}
+          onBack={() => setCurrentModule('home')}
+          onUpdateSupplier={s => saveAction('suppliers', s)}
+        />
+      )}
       {currentModule === 'contracts' && (
         <>
           {contractWizardSupplierId !== null && (
@@ -426,6 +451,7 @@ const App: React.FC = () => {
             )}
             {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
             {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
+            {activeTab === 'access' && <AccessManagement suppliers={suppliers} />}
           </Layout>
         </>
       )}

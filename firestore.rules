@@ -109,6 +109,11 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
     }
 
+    match /visits/{visitId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
     match /procedure_settings/{settingsId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();

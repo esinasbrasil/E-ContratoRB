@@ -3,6 +3,38 @@ import { jsPDF } from "jspdf";
 import { PDFDocument, PageSizes } from "pdf-lib";
 import { ContractRequestData, Supplier, CompanySettings, Unit } from "../types";
 
+const attachmentTypes = [
+  'Pedido de Compra',
+  'Contrato Social (Alteração Contratual Assinada)',
+  'CND Federal (Certidão Federal)',
+  'CND Estadual (Certidão Estadual)',
+  'CND Municipal (Certidão Municipal)',
+  'CND Trabalhista (Certidão Trabalhista)',
+  'Certidão FGTS (Certidão FGTS)',
+  'Ata ou Procuração (Certidão Simplificada)',
+  'Orçamento (Proposta Detalhada)',
+  'Relatório Serasa'
+];
+
+const homolCompanyDocs = [
+  { id: 'homolCompanyPGR', label: 'PGR – Programa de Gerenciamento de Riscos' },
+  { id: 'homolCompanyPCMSO', label: 'PCMSO – Programa de Controle Médico de Saúde Ocupacional' },
+  { id: 'homolCompanyAlvara', label: 'ALVARÁ DE FUNCIONAMENTO' },
+  { id: 'homolCompanyCNPJ', label: 'CARTÃO CNPJ' },
+  { id: 'homolCompanyCNDFed', label: 'CND - Certidão negativa de débitos federais' },
+  { id: 'homolCompanyCNDT', label: 'CNDT - Certidão negativa de débitos trabalhistas' },
+  { id: 'homolCompanyCRF', label: 'CRF - Certificado de Regularidade do FGTS' },
+  { id: 'homolCompanyEmployeeList', label: 'Lista de funcionários prestadores de serviços para o Grupo RB' }
+];
+
+const homolEmployeeDocs = [
+  { id: 'homolEmployeeASO', label: 'ASO – Atestado de Saúde Ocupacional' },
+  { id: 'homolEmployeeEPI', label: 'Ficha de EPI – Equipamento de Proteção Individual' },
+  { id: 'homolEmployeeRegistration', label: 'Registro dos colaboradores' },
+  { id: 'homolEmployeeOS', label: 'OS – Ordem de Serviço de Segurança do Trabalho' },
+  { id: 'homolEmployeeQualif', label: 'Documentação de qualificação (Treinamentos: NR10, NR33, NR35, etc.)' }
+];
+
 const base64ToUint8Array = (base64: string): Uint8Array => {
   try {
     const pureBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
@@ -30,6 +62,172 @@ const isPDF = (bytes: Uint8Array): boolean => {
   return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;
 };
 
+const createInvitationLetterPDFBlob = async (data: ContractRequestData, settings?: CompanySettings, unit?: Unit): Promise<Blob> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const margin = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const contentWidth = pageWidth - (margin * 2);
+  const primaryColor: [number, number, number] = [15, 23, 42]; // Slate 900
+  
+  const companyName = safeText(settings?.companyName || "GRUPO RESINAS BRASIL");
+  let currentY = 45;
+
+  const drawHeader = () => {
+    if (settings?.logoBase64) {
+      try {
+        doc.addImage(settings.logoBase64, 'PNG', margin, 15, 25, 25, undefined, 'FAST');
+      } catch (e) {
+        console.warn("Logo error:", e);
+      }
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(companyName.toUpperCase(), pageWidth - margin, 20, { align: "right" });
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`CARTA CONVITE - PROCESSO DE COTAÇÃO`, pageWidth - margin, 26, { align: "right" });
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, 31, { align: "right" });
+    
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, 40, pageWidth - margin, 40);
+  };
+
+  const drawFooter = () => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(safeText(settings?.footerText || "https://gruporesinasbrasil.com.br/"), margin, pageHeight - 15);
+    doc.text(`Este documento é um convite formal para participação em processo de cotação.`, pageWidth / 2, pageHeight - 10, { align: "center" });
+  };
+
+  drawHeader();
+
+  // 1. Saudação
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(0, 0, 0);
+  doc.text("À EMPRESA CONVIDADA,", margin, currentY);
+  currentY += 10;
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+  const introText = `O ${companyName.toUpperCase()} tem o prazer de convidá-lo a participar do nosso processo de cotação para a execução do serviço/projeto detalhado abaixo.`;
+  const introLines = doc.splitTextToSize(introText, contentWidth);
+  doc.text(introLines, margin, currentY);
+  currentY += (introLines.length * 6) + 10;
+
+  // 2. Localização
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text("1. LOCAL DA PRESTAÇÃO / UNIDADE", margin, currentY);
+  currentY += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  doc.text(safeText(unit?.name || data.serviceLocation).toUpperCase(), margin, currentY);
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+  doc.text(`Endereço: ${safeText(unit?.address || "-")}`, margin, currentY);
+  currentY += 12;
+
+  // 3. Objeto
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text("2. OBJETO DO CONVITE", margin, currentY);
+  currentY += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(0, 0, 0);
+  const objName = safeText(data.objectDescription).replace(/REQUISITOS TÉCNICOS: /g, '');
+  doc.text(objName.toUpperCase(), margin, currentY);
+  currentY += 8;
+
+  // 4. Escopo/Resumo
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text("3. RESUMO DO ESCOPO", margin, currentY);
+  currentY += 6;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(50, 50, 50);
+  const scopeLines = doc.splitTextToSize(safeText(data.scopeDescription), contentWidth);
+  doc.text(scopeLines, margin, currentY);
+  currentY += (scopeLines.length * 6) + 12;
+
+  // 5. Requisitos de Segurança
+  if (data.safetyClassification) {
+    if (currentY + 60 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("4. REQUISITOS OBRIGATÓRIOS DE SEGURANÇA E MEIO AMBIENTE", margin, currentY);
+    currentY += 8;
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(190, 60, 0);
+    doc.text(`GRAU DE COMPLEXIDADE ESTIMADO: ${data.safetyClassification.complexity.toUpperCase()}`, margin, currentY);
+    currentY += 8;
+
+    const drawInvList = (title: string, items: string[]) => {
+      if (!items || items.length === 0) return;
+      if (currentY + 20 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(0,0,0);
+      doc.text(title.toUpperCase(), margin, currentY);
+      currentY += 5;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      items.forEach(item => {
+        if (currentY + 6 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+        doc.text(` • ${item}`, margin + 3, currentY);
+        currentY += 5;
+      });
+      currentY += 4;
+    };
+
+    drawInvList("Normas Regulamentadoras (NRs)", data.safetyClassification.nr);
+    drawInvList("Documentação de Segurança Exigida", data.safetyClassification.documentos);
+    drawInvList("Equipamentos de Proteção (EPIs)", data.safetyClassification.epis);
+    drawInvList("Controles Operacionais", data.safetyClassification.controles);
+  }
+
+  // 5.2 Documentação Exigida para Participação
+  const requiredDocs: string[] = [];
+  homolCompanyDocs.forEach(d => { if ((data as any)[d.id]) requiredDocs.push(d.label); });
+  homolEmployeeDocs.forEach(d => { if ((data as any)[d.id]) requiredDocs.push(d.label); });
+
+  if (requiredDocs.length > 0) {
+    if (currentY + 40 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("5. DOCUMENTAÇÃO OBRIGATÓRIA PARA HABILITAÇÃO", margin, currentY);
+    currentY += 8;
+
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+    requiredDocs.forEach(docName => {
+      if (currentY + 6 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+      doc.text(` • ${docName}`, margin + 3, currentY);
+      currentY += 5;
+    });
+    currentY += 6;
+  }
+
+  // 6. Encerramento
+  if (currentY + 60 > pageHeight - 30) { doc.addPage(); currentY = 25; }
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(0, 0, 0);
+  const closingText = "As propostas comerciais devem ser enviadas respeitando integralmente os requisitos técnicos, de segurança e de documentação acima descritos. Ressaltamos que o atendimento a estes quesitos é condição mandatória para a homologação do fornecedor e prosseguimento no processo de contratação.";
+  const closingLines = doc.splitTextToSize(closingText, contentWidth);
+  doc.text(closingLines, margin, currentY);
+  currentY += (closingLines.length * 5.5) + 12;
+
+  doc.text("Para eventuais dúvidas técnicas, favor entrar em contato com o departamento solicitante.", margin, currentY);
+  currentY += 15;
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Atenciosamente,", margin, currentY);
+  currentY += 15;
+  
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+  doc.text(companyName.toUpperCase(), margin, currentY);
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+  doc.text("Departamento de Suprimentos / Segurança do Trabalho", margin, currentY);
+  
+  drawFooter();
+  return doc.output('blob');
+};
+
 const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit): Promise<Blob> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -41,11 +239,16 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const contentWidth = pageWidth - (margin * 2);
+  const colW = contentWidth / 2;
   const emeraldColor: [number, number, number] = [6, 78, 59]; // #064e3b
   const lightGray: [number, number, number] = [241, 245, 249]; // #f1f5f9
   
   const companyName = safeText(settings?.companyName || "GRUPO RESINAS BRASIL");
-  const documentTitle = safeText(settings?.documentTitle || "Solicitação de Contrato / Minuta");
+  let documentTitle = safeText(data.objectDescription?.includes('REQUISITOS TÉCNICOS') ? 'Ficha de Requisitos p/ Carta Convite' : (settings?.documentTitle || "Ficha de Homologação: Segurança e RH"));
+  
+  if (data.supplierId === 'convite-rfp') {
+    documentTitle = 'Ficha de Requisitos p/ Carta Convite';
+  }
   
   let currentY = 42;
   let pageNum = 1;
@@ -155,20 +358,27 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text(safeText(unit?.address || "-"), margin, currentY);
   currentY += 10;
 
-  // 2. FORNECEDOR
-  printSection("2. DADOS DO FORNECEDOR");
-  const colW = contentWidth / 2;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100);
-  doc.text("RAZÃO SOCIAL", margin, currentY);
-  doc.text("CNPJ", margin + colW, currentY);
-  currentY += 4.5;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(0,0,0);
-  doc.text(safeText(supplier?.name).toUpperCase(), margin, currentY);
-  doc.text(safeText(supplier?.cnpj), margin + colW, currentY);
-  currentY += 8;
-  printMultiLineText("ENDEREÇO DO FORNECEDOR", supplier?.address || "-");
-  printLabelValue("TIPO DE SERVIÇO", supplier?.serviceType || "-");
-  printLabelValue("FILIAIS DO FORNECEDOR ENVOLVIDAS", data.supplierBranches || "Não aplicável");
+  // 2. DESTINAÇÃO OU FORNECEDOR
+  if (data.supplierId === 'convite-rfp') {
+    printSection("2. DESTINAÇÃO DO DOCUMENTO (RFP)");
+    printLabelValue("FINALIDADE", "Carta Convite / Chamamento para Cotação");
+    printLabelValue("UNIDADE / FÁBRICA", unit?.name || data.serviceLocation);
+    printLabelValue("ENDEREÇO DE EXECUÇÃO", unit?.address || "-");
+    printMultiLineText("OBSERVAÇÃO", "Este documento define os requisitos técnicos e de segurança mínimos que devem ser atendidos pelos licitantes para participação no processo de contratação. O escopo detalhado encontra-se na seção 4.");
+  } else {
+    printSection("2. DADOS DO FORNECEDOR");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100);
+    doc.text("RAZÃO SOCIAL", margin, currentY);
+    doc.text("CNPJ", margin + colW, currentY);
+    currentY += 4.5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(0,0,0);
+    doc.text(safeText(supplier?.name).toUpperCase(), margin, currentY);
+    doc.text(safeText(supplier?.cnpj), margin + colW, currentY);
+    currentY += 8;
+    printMultiLineText("ENDEREÇO DO FORNECEDOR", supplier?.address || "-");
+    printLabelValue("TIPO DE SERVIÇO", supplier?.serviceType || "-");
+    printLabelValue("FILIAIS DO FORNECEDOR ENVOLVIDAS", data.supplierBranches || "Não aplicável");
+  }
 
   // 3. DOCUMENTAÇÃO E COMPLIANCE
   printSection("3. DOCUMENTAÇÃO E COMPLIANCE");
@@ -306,6 +516,66 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 6;
   });
 
+  // 8.3 Classificação de Segurança (NOVO)
+  if (data.safetyClassification) {
+    printSection("8.3. CLASSIFICAÇÃO DE SEGURANÇA E SAÚDE");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text(`Complexidade: ${data.safetyClassification.complexity.toUpperCase()}`, margin, currentY);
+    currentY += 8;
+    
+    const drawSafetyList = (title: string, items: string[]) => {
+      if (!items || items.length === 0) return;
+      if (checkPageOverflow(10)) currentY += 10;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+      doc.text(title.toUpperCase(), margin, currentY);
+      currentY += 5;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
+      items.forEach(item => {
+        if (checkPageOverflow(5)) currentY += 5;
+        doc.text(` • ${item}`, margin + 3, currentY);
+        currentY += 5;
+      });
+      currentY += 3;
+    };
+
+    drawSafetyList("Normas Aplicáveis", data.safetyClassification.nr);
+    drawSafetyList("Documentos Adicionais", data.safetyClassification.documentos);
+    drawSafetyList("EPIs Identificados", data.safetyClassification.epis);
+    drawSafetyList("Controles de Engenharia/ADM", data.safetyClassification.controles);
+  }
+
+  // 8.4 FICHA DE HOMOLOGAÇÃO: SEGURANÇA E RH (NOVO)
+  printSection("8.4. FICHA DE HOMOLOGAÇÃO: SEGURANÇA E RH");
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  doc.text("Checklist de documentos obrigatórios para prestação de serviços no Grupo RB.", margin, currentY);
+  currentY += 6;
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+  doc.text("DOCUMENTOS DA EMPRESA", margin, currentY);
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
+  homolCompanyDocs.forEach(item => {
+    if (checkPageOverflow(6)) currentY += 6;
+    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin + 3, currentY);
+    currentY += 5;
+  });
+  currentY += 3;
+
+  if (checkPageOverflow(15)) currentY += 15;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+  doc.text("DOCUMENTOS DO COLABORADOR", margin, currentY);
+  currentY += 4;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(100, 100, 100);
+  doc.text("Deve ser apresentada uma pasta para cada colaborador contendo as cópias dos documentos abaixo.", margin, currentY);
+  currentY += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
+  homolEmployeeDocs.forEach(item => {
+    if (checkPageOverflow(6)) currentY += 6;
+    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin + 3, currentY);
+    currentY += 5;
+  });
+  currentY += 10;
+
   // 9. ANEXOS
   printSection("9. DOCUMENTOS ANEXOS");
   currentY += 4;
@@ -319,13 +589,23 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   });
 
   // Footer Signatures
-  checkPageOverflow(40);
-  currentY += 15;
+  checkPageOverflow(50);
+  currentY += 20;
   doc.setDrawColor(150, 150, 150);
+  
+  // Signature Line 1: Fornecedor
   doc.line(margin, currentY, margin + 75, currentY);
-  doc.text("Solicitante / Gestor do Contrato", margin + 37.5, currentY + 5, { align: "center" });
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+  doc.text("Assinatura do Fornecedor", margin + 37.5, currentY + 5, { align: "center" });
+  
+  // Signature Line 2: Segurança do Trabalho / RH (Grupo RB)
   doc.line(pageWidth - margin - 75, currentY, pageWidth - margin, currentY);
-  doc.text("Aprovação Diretoria / Jurídico", pageWidth - margin - 37.5, currentY + 5, { align: "center" });
+  doc.text("Segurança do Trabalho / RH (Grupo RB)", pageWidth - margin - 37.5, currentY + 5, { align: "center" });
+
+  currentY += 20;
+  // Additional signature or manager
+  doc.line(margin + (contentWidth / 2) - 37.5, currentY, margin + (contentWidth / 2) + 37.5, currentY);
+  doc.text("Responsável Técnico / Gestor", pageWidth / 2, currentY + 5, { align: "center" });
 
   drawFooter();
   return doc.output('blob');
@@ -342,7 +622,11 @@ const isImage = (bytes: Uint8Array): boolean => {
 
 export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit) => {
   try {
-    const mainPdfBlob = await createChecklistPDFBlob(data, supplier, settings, unit);
+    const isInvitation = data.supplierId === 'convite-rfp';
+    const mainPdfBlob = isInvitation 
+      ? await createInvitationLetterPDFBlob(data, settings, unit)
+      : await createChecklistPDFBlob(data, supplier, settings, unit);
+    
     const mainPdfArrayBuffer = await mainPdfBlob.arrayBuffer();
     const mergedPdf = await PDFDocument.create();
     const mainPdfDoc = await PDFDocument.load(mainPdfArrayBuffer);
@@ -397,7 +681,10 @@ export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supp
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Checklist_Contrato_${safeText(supplier?.name).replace(/\s/g, '_')}.pdf`;
+    const fileName = data.supplierId === 'convite-rfp' 
+      ? `Requisitos_Seguranca_${safeText(data.objectDescription).replace(/REQUISITOS TÉCNICOS: /g, '').replace(/\s/g, '_')}.pdf`
+      : `Checklist_Contrato_${safeText(supplier?.name).replace(/\s/g, '_')}.pdf`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

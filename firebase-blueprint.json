@@ -126,9 +126,34 @@
         "primaryColor": { "type": "string" },
         "documentTitle": { "type": "string" }
       }
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "An access authorization for the gatehouse (portaria)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "cpf": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "companyName": { "type": "string" },
+        "carPlate": { "type": "string" },
+        "reason": { "type": "string" },
+        "authorizedBy": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Authorized", "Completed", "Canceled"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "cpf", "status", "startDate"]
     }
   },
   "firestore": {
+    "/visits/{visitId}": {
+      "schema": "Visit",
+      "description": "Visits and access authorizations collection"
+    },
     "/suppliers/{supplierId}": {
       "schema": "Supplier",
       "description": "Suppliers collection"

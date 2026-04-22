@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Supplier, SupplierStatus, ServiceCategory } from '../types';
 import { generateId } from '../utils';
+import { fetchCNPJData } from '../services/cnpjService';
 import { 
   Plus, 
   Search, 
@@ -15,7 +16,11 @@ import {
   X,
   Building,
   FileText,
-  Loader2
+  Loader2,
+  MapPin,
+  Mail,
+  Phone,
+  SearchCode
 } from 'lucide-react';
 
 interface SupplierManagerProps {
@@ -65,11 +70,34 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
       address: '',
       serviceType: '',
       status: SupplierStatus.PENDING,
-      rating: 0
+      rating: 0,
+      contactEmail: '',
+      contactPhone: ''
     });
     setEditingId(null);
     setIsFormOpen(false);
     setIsSaving(false);
+  };
+
+  const [isFetchingCNPJ, setIsFetchingCNPJ] = useState(false);
+
+  const handleCNPJLookup = async () => {
+    if (!formData.cnpj) return;
+    setIsFetchingCNPJ(true);
+    try {
+      const data = await fetchCNPJData(formData.cnpj);
+      setFormData(prev => ({
+        ...prev,
+        name: data.name,
+        address: data.address,
+        contactEmail: data.email,
+        contactPhone: data.phone
+      }));
+    } catch (error: any) {
+      alert(error.message || 'Erro ao buscar dados do CNPJ');
+    } finally {
+      setIsFetchingCNPJ(false);
+    }
   };
 
   const handleEditClick = (supplier: Supplier) => {
@@ -93,7 +121,9 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
           serviceType: formData.serviceType || 'Outros',
           status: formData.status || SupplierStatus.PENDING,
           rating: formData.rating || 0,
-          docs: formData.docs || []
+          docs: formData.docs || [],
+          contactEmail: formData.contactEmail,
+          contactPhone: formData.contactPhone
         };
         
         console.group("--- DEBUG: SALVANDO FORNECEDOR ---");
@@ -155,6 +185,28 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.cnpj}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cnpj: e.target.value }))}
+                    className="flex-1 rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                    placeholder="00.000.000/0000-00"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCNPJLookup}
+                    disabled={isFetchingCNPJ || !formData.cnpj}
+                    className="px-3 py-2 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200 text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isFetchingCNPJ ? <Loader2 size={14} className="animate-spin" /> : <SearchCode size={14} />}
+                    Buscar
+                  </button>
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social *</label>
                 <input
                   type="text"
@@ -164,15 +216,27 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email de Contato</label>
+                <input
+                  type="email"
+                  value={formData.contactEmail || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactEmail: e.target.value }))}
+                  className="w-full rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                  placeholder="exemplo@empresa.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone / WhatsApp</label>
                 <input
                   type="text"
-                  value={formData.cnpj}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cnpj: e.target.value }))}
+                  value={formData.contactPhone || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactPhone: e.target.value }))}
                   className="w-full rounded-md border-gray-300 border p-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                  placeholder="00.000.000/0000-00"
-                  required
+                  placeholder="(00) 00000-0000"
                 />
               </div>
             </div>

@@ -11,6 +11,14 @@ export interface ServiceCategory {
   description: string;
 }
 
+export interface ComplianceDocument {
+  id: string;
+  name: string;
+  expiryDate: string;
+  fileUrl?: string;
+  type: string;
+}
+
 export interface Supplier {
   id: string;
   user_id?: string;
@@ -21,6 +29,10 @@ export interface Supplier {
   status: SupplierStatus;
   rating: number;
   docs: string[];
+  complianceDocuments?: ComplianceDocument[];
+  contactEmail?: string;
+  contactPhone?: string;
+  lastVisit?: string;
 }
 
 export interface Unit {
@@ -80,6 +92,15 @@ export interface ContractAttachment {
   name: string;
   type: string;
   fileData: string;
+}
+
+export interface SafetyClassificationResults {
+  nr: string[];
+  documentos: string[];
+  epis: string[];
+  controles: string[];
+  answers: Record<string, boolean>;
+  complexity: 'baixa' | 'media' | 'alta';
 }
 
 export interface ContractRequestData {
@@ -146,6 +167,29 @@ export interface ContractRequestData {
   docCheckFiscalValidation: boolean;
   docCheckSafetyDocs: boolean;
   docCheckTrainingCertificates: boolean;
+  
+  // Ficha de Homologação: Segurança e RH
+  homolCompanyPGR: boolean;
+  homolCompanyPCMSO: boolean;
+  homolCompanyAlvara: boolean;
+  homolCompanyCNPJ: boolean;
+  homolCompanyCNDFed: boolean;
+  homolCompanyCNDT: boolean;
+  homolCompanyCRF: boolean;
+  homolCompanyEmployeeList: boolean;
+  homolEmployeeASO: boolean;
+  homolEmployeeEPI: boolean;
+  homolEmployeeRegistration: boolean;
+  homolEmployeeOS: boolean;
+  homolEmployeeQualif: boolean;
+  
+  // Datas de validade
+  expiryPGR?: string;
+  expiryPCMSO?: string;
+  expiryASO?: string;
+  expiryNRs?: string;
+
+  safetyClassification?: SafetyClassificationResults;
 
   attachments: ContractAttachment[];
 }
@@ -189,6 +233,36 @@ export interface Procedure {
 export interface ProcedureSettings {
   id: string;
   steps: Omit<ProcessStep, 'id'>[];
+}
+
+export enum AppTab {
+  DASHBOARD = 'Dashboard',
+  SUPPLIERS = 'Fornecedores',
+  UNITS = 'Unidades',
+  PROJECTS = 'Projetos',
+  REQUISITION = 'Requisitante',
+  COMPLIANCE = 'Seguranca',
+  JURIDICO = 'Juridico',
+  FINANCEIRO = 'Financeiro',
+  PROCEDURES = 'Fluxo',
+  PORTARIA_ADMIN = 'AcessoPortaria',
+  SETTINGS = 'Configuracoes'
+}
+
+export interface VisitRecord {
+  id: string;
+  user_id?: string;
+  name: string;
+  cpf: string;
+  cnpj: string;
+  companyName?: string;
+  carPlate: string;
+  reason: string;
+  authorizedBy: string;
+  startDate: string;
+  endDate: string;
+  status: 'Authorized' | 'Completed' | 'Canceled';
+  createdAt: string;
 }
 
 export interface DashboardStats {

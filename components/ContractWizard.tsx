@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail } from '../types';
-import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User, ShieldCheck, Briefcase, Coins, Users, Gavel } from 'lucide-react';
+import { Supplier, Project, Preposto, ContractRequestData, Unit, CompanySettings, ContractAttachment, LaborDetail, SafetyClassificationResults } from '../types';
+import { Check, ChevronRight, ChevronLeft, FileText, Plus, Upload, Building, Info, Link as LinkIcon, Loader2, X, Save, MapPin, FileCheck, AlertTriangle, Mail, User, ShieldCheck, Briefcase, Coins, Users, Gavel, Printer, Zap, ClipboardCheck } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
 
 interface ContractWizardProps {
@@ -52,6 +52,38 @@ const legalChecklist = [
   { id: 'aspectAdvancePayment', label: 'Cláusula de antecipação de pagamento' },
   { id: 'aspectNonStandard', label: 'Condições não padrão (Outros)' }
 ];
+
+const homolCompanyDocs = [
+  { id: 'homolCompanyPGR', label: 'PGR – Programa de Gerenciamento de Riscos' },
+  { id: 'homolCompanyPCMSO', label: 'PCMSO – Programa de Controle Médico de Saúde Ocupacional' },
+  { id: 'homolCompanyAlvara', label: 'ALVARÁ DE FUNCIONAMENTO' },
+  { id: 'homolCompanyCNPJ', label: 'CARTÃO CNPJ' },
+  { id: 'homolCompanyCNDFed', label: 'CND - Certidão negativa de débitos federais' },
+  { id: 'homolCompanyCNDT', label: 'CNDT - Certidão negativa de débitos trabalhistas' },
+  { id: 'homolCompanyCRF', label: 'CRF - Certificado de Regularidade do FGTS' },
+  { id: 'homolCompanyEmployeeList', label: 'Lista de funcionários prestadores de serviços para o Grupo RB' }
+];
+
+const homolEmployeeDocs = [
+  { id: 'homolEmployeeASO', label: 'ASO – Atestado de Saúde Ocupacional' },
+  { id: 'homolEmployeeEPI', label: 'Ficha de EPI – Equipamento de Proteção Individual' },
+  { id: 'homolEmployeeRegistration', label: 'Registro dos colaboradores' },
+  { id: 'homolEmployeeOS', label: 'OS – Ordem de Serviço de Segurança do Trabalho' },
+  { id: 'homolEmployeeQualif', label: 'Documentação de qualificação (Treinamentos: NR10, NR33, NR35, etc.)' }
+];
+
+const SAFETY_QUESTIONS = [
+  { id: "altura", pergunta: "Trabalho em altura (acima de 2 metros)?", nr: ["NR35"], documentos: ["Treinamento NR35", "ASO apto altura"], epis: ["Cinto paraquedista", "Talabarte", "Capacete com jugular"], controles: ["APR", "PT"] },
+  { id: "espaco_confinado", pergunta: "Trabalho em espaço confinado?", nr: ["NR33"], documentos: ["Treinamento NR33", "ASO específico"], epis: ["Detector de gases", "Respirador", "Tripé resgate"], controles: ["PET", "Monitoramento de gases"] },
+  { id: "eletricidade", pergunta: "Trabalho com eletricidade ou energia ativa?", nr: ["NR10"], documentos: ["Treinamento NR10", "Autorização formal"], epis: ["Luva isolante", "Capacete classe B", "Roupa anti-chama"], controles: ["LOTO", "Desenergização"] },
+  { id: "maquinas", pergunta: "Uso de máquinas ou equipamentos?", nr: ["NR12"], documentos: ["Capacitação operador"], epis: ["Óculos", "Protetor auricular", "Luvas"], controles: ["Proteção de máquina", "Botão emergência"] },
+  { id: "carga", pergunta: "Movimentação de carga?", nr: ["NR11"], documentos: ["Treinamento operador"], epis: ["Luvas", "Botina", "Capacete"], controles: ["Sinalização", "Plano de içamento"] },
+  { id: "quimicos", pergunta: "Uso de produtos químicos?", nr: ["NR20"], documentos: ["FISPQ", "Treinamento"], epis: ["Luva química", "Respirador", "Óculos"], controles: ["Ventilação", "Armazenamento correto"] },
+  { id: "escavacao", pergunta: "Haverá escavação ou obra civil?", nr: ["NR18"], documentos: ["PGR obra", "PCMAT"], epis: ["Capacete", "Botina", "Colete"], controles: ["Escoramento", "Isolamento área"] },
+  { id: "ruido", pergunta: "Ambiente com ruído ou agente agressivo?", nr: ["NR15"], documentos: ["Laudo insalubridade"], epis: ["Protetor auricular", "Respirador"], controles: [] as string[] }
+];
+
+const NR_BASE = ["NR01", "NR06", "NR07"];
 
 const attachmentTypes = [
   'Pedido de Compra',
@@ -134,6 +166,19 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     docCheckFiscalValidation: false,
     docCheckSafetyDocs: false,
     docCheckTrainingCertificates: false,
+    homolCompanyPGR: false,
+    homolCompanyPCMSO: false,
+    homolCompanyAlvara: false,
+    homolCompanyCNPJ: false,
+    homolCompanyCNDFed: false,
+    homolCompanyCNDT: false,
+    homolCompanyCRF: false,
+    homolCompanyEmployeeList: false,
+    homolEmployeeASO: false,
+    homolEmployeeEPI: false,
+    homolEmployeeRegistration: false,
+    homolEmployeeOS: false,
+    homolEmployeeQualif: false,
     attachments: []
   });
 
@@ -172,6 +217,84 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
       ...prev,
       unitId,
       serviceLocation: unit?.name || ''
+    }));
+  };
+
+  const handleSafetyToggle = (questionId: string, answer: boolean) => {
+    const currentAnswers = formData.safetyClassification?.answers || {};
+    const newAnswers = { ...currentAnswers, [questionId]: answer };
+    
+    // Recalcular resultados
+    let nr = new Set(NR_BASE);
+    let documentos = new Set<string>();
+    let epis = new Set<string>();
+    let controles = new Set<string>();
+
+    SAFETY_QUESTIONS.forEach(q => {
+      if (newAnswers[q.id]) {
+        q.nr.forEach(n => nr.add(n));
+        q.documentos.forEach(d => documentos.add(d));
+        q.epis.forEach(e => epis.add(e));
+        q.controles.forEach(c => controles.add(c));
+      }
+    });
+
+    const currentComplexity = formData.safetyClassification?.complexity || 'baixa';
+    if (currentComplexity === "media") controles.add("APR obrigatória");
+    if (currentComplexity === "alta") {
+      controles.add("APR obrigatória");
+      controles.add("Permissão de Trabalho (PT)");
+      controles.add("Supervisor obrigatório");
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      safetyClassification: {
+        nr: Array.from(nr),
+        documentos: Array.from(documentos),
+        epis: Array.from(epis),
+        controles: Array.from(controles),
+        answers: newAnswers,
+        complexity: currentComplexity
+      }
+    }));
+  };
+
+  const handleComplexityChange = (complexity: 'baixa' | 'media' | 'alta') => {
+    const currentAnswers = formData.safetyClassification?.answers || {};
+    
+    // Recalcular resultados
+    let nr = new Set(NR_BASE);
+    let documentos = new Set<string>();
+    let epis = new Set<string>();
+    let controles = new Set<string>();
+
+    SAFETY_QUESTIONS.forEach(q => {
+      if (currentAnswers[q.id]) {
+        q.nr.forEach(n => nr.add(n));
+        q.documentos.forEach(d => documentos.add(d));
+        q.epis.forEach(e => epis.add(e));
+        q.controles.forEach(c => controles.add(c));
+      }
+    });
+
+    if (complexity === "media") controles.add("APR obrigatória");
+    if (complexity === "alta") {
+      controles.add("APR obrigatória");
+      controles.add("Permissão de Trabalho (PT)");
+      controles.add("Supervisor obrigatório");
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      safetyClassification: {
+        nr: Array.from(nr),
+        documentos: Array.from(documentos),
+        epis: Array.from(epis),
+        controles: Array.from(controles),
+        answers: currentAnswers,
+        complexity: complexity
+      }
     }));
   };
 
@@ -409,15 +532,117 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         </div>
       );
       case 7: return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-800">8. Doc. Obrigatórios</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {checklistItems.map(item => (
-              <label key={item.id} className="flex items-center gap-4 p-5 border-2 border-gray-50 rounded-2xl cursor-pointer hover:bg-gray-50 transition-all">
-                <input type="checkbox" className="h-6 w-6 text-primary-600 rounded-lg" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
-                <span className="text-sm font-bold text-gray-700">{item.label}</span>
-              </label>
-            ))}
+        <div className="space-y-6">
+          <div className="mb-8 border-b border-slate-100 pb-8">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">8. Segurança do Trabalho e Homologação</h3>
+            <p className="text-sm text-slate-500 font-medium">Classifique o serviço e revise a documentação obrigatória.</p>
+          </div>
+
+          <section className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><ShieldCheck size={24} /></div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">Classificação de Serviço</h2>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1 opacity-70">Análise de Risco Operacional</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {SAFETY_QUESTIONS.map(q => (
+                <div key={q.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-sm gap-4 transition-all hover:shadow-md">
+                  <div className="max-w-md">
+                    <p className="text-sm font-black text-slate-800 leading-tight mb-1">{q.pergunta}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Envolvimento de {q.nr.join(', ')}</p>
+                  </div>
+                  <div className="flex bg-slate-100 p-1.5 rounded-2xl shrink-0">
+                    <button 
+                      onClick={() => handleSafetyToggle(q.id, true)}
+                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.safetyClassification?.answers?.[q.id] === true ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Sim
+                    </button>
+                    <button 
+                      onClick={() => handleSafetyToggle(q.id, false)}
+                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.safetyClassification?.answers?.[q.id] === false ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      Não
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 pt-8 border-t border-slate-200">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-2">Complexidade Operacional Geral</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {['baixa', 'media', 'alta'].map(c => (
+                    <button
+                      key={c}
+                      onClick={() => handleComplexityChange(c as any)}
+                      className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border-2 transition-all ${formData.safetyClassification?.complexity === c ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400 hover:border-emerald-500'}`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+            </div>
+          </section>
+
+          <div className="p-10 border-2 border-primary-50 bg-primary-50/20 rounded-[3rem] space-y-8">
+            <div className="flex items-center gap-5">
+               <div className="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center text-primary-600 border border-primary-50">
+                  <ClipboardCheck size={36} />
+               </div>
+               <div>
+                  <h4 className="text-xl font-black text-slate-900 tracking-tight">Ficha de Homologação: Segurança e RH</h4>
+                  <p className="text-sm font-bold text-primary-600/70 tracking-tight">Checklist de documentos obrigatórios para prestação de serviços no Grupo RB.</p>
+               </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <div className="h-1.5 w-8 bg-primary-600 rounded-full"></div>
+                <h5 className="text-[11px] font-black text-primary-900 uppercase tracking-[0.1em]">Documentos da Empresa</h5>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {homolCompanyDocs.map(item => (
+                   <label key={item.id} className="flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-2xl cursor-pointer hover:border-primary-400 transition-all group shadow-sm">
+                      <input type="checkbox" className="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                      <span className="text-xs font-bold text-gray-700 group-hover:text-primary-900 leading-tight">{item.label}</span>
+                   </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <div className="h-1.5 w-8 bg-blue-600 rounded-full"></div>
+                <div>
+                  <h5 className="text-[11px] font-black text-blue-900 uppercase tracking-[0.1em]">Documentos do Colaborador</h5>
+                  <p className="text-[9px] text-blue-600 font-bold opacity-60">Pasta individual por colaborador com cópias originais.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {homolEmployeeDocs.map(item => (
+                   <label key={item.id} className="flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-2xl cursor-pointer hover:border-blue-400 transition-all group shadow-sm">
+                      <input type="checkbox" className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                      <span className="text-xs font-bold text-gray-700 group-hover:text-blue-900 leading-tight">{item.label}</span>
+                   </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Outros Documentos de Conformidade</h4>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+               {checklistItems.map(item => (
+                 <label key={item.id} className="flex items-center gap-4 p-5 border-2 border-gray-50 rounded-2xl cursor-pointer hover:bg-gray-50 transition-all">
+                   <input type="checkbox" className="h-6 w-6 text-primary-600 rounded-lg" checked={(formData as any)[item.id]} onChange={e => handleChange(item.id as any, e.target.checked)} />
+                   <span className="text-sm font-bold text-gray-700">{item.label}</span>
+                 </label>
+               ))}
+             </div>
           </div>
         </div>
       );
@@ -454,6 +679,42 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
              <div className="p-6 bg-white border-2 border-gray-100 rounded-[2.5rem] shadow-sm"><p className="text-[10px] uppercase font-black text-gray-400 mb-2">Contratada</p><p className="text-lg font-black text-gray-800">{suppliers.find(s=>s.id===formData.supplierId)?.name}</p></div>
              <div className="p-6 bg-white border-2 border-gray-100 rounded-[2.5rem] shadow-sm"><p className="text-[10px] uppercase font-black text-gray-400 mb-2">Valor Total</p><p className="text-2xl font-black text-emerald-600">R$ {formData.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p></div>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] shadow-sm">
+                <h4 className="text-[10px] uppercase font-black text-primary-600 mb-3 flex items-center gap-2"><ShieldCheck size={14}/> Homologação Empresa</h4>
+                <div className="flex flex-wrap gap-2">
+                   {homolCompanyDocs.filter(d => (formData as any)[d.id]).length > 0 ? (
+                      homolCompanyDocs.filter(d => (formData as any)[d.id]).map(d => <span key={d.id} className="text-[9px] font-bold bg-primary-50 text-primary-700 px-2 py-1 rounded-lg border border-primary-100 line-clamp-1 max-w-[150px]">{d.label}</span>)
+                   ) : <span className="text-[9px] text-slate-400 font-bold italic">Nenhum documento marcado</span>}
+                </div>
+             </div>
+             <div className="p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] shadow-sm">
+                <h4 className="text-[10px] uppercase font-black text-blue-600 mb-3 flex items-center gap-2"><Users size={14}/> Homologação Colaboradores</h4>
+                <div className="flex flex-wrap gap-2">
+                   {homolEmployeeDocs.filter(d => (formData as any)[d.id]).length > 0 ? (
+                      homolEmployeeDocs.filter(d => (formData as any)[d.id]).map(d => <span key={d.id} className="text-[9px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100 line-clamp-1 max-w-[150px]">{d.label}</span>)
+                   ) : <span className="text-[9px] text-slate-400 font-bold italic">Nenhum documento marcado</span>}
+                </div>
+             </div>
+          </div>
+
+          {formData.safetyClassification && (
+            <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-xl relative overflow-hidden">
+              <div className="relative z-10">
+                <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
+                  <ShieldCheck size={16} /> Resumo de Segurança (Classificação Ativa)
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div><p className="text-[8px] text-slate-400 uppercase font-black mb-1">Complexidade</p><p className="text-sm font-bold uppercase">{formData.safetyClassification.complexity}</p></div>
+                  <div><p className="text-[8px] text-slate-400 uppercase font-black mb-1">NRs Envolvidas</p><p className="text-sm font-bold">{formData.safetyClassification.nr.length}</p></div>
+                  <div><p className="text-[8px] text-slate-400 uppercase font-black mb-1">Docs. Extras</p><p className="text-sm font-bold">{formData.safetyClassification.documentos.length}</p></div>
+                  <div><p className="text-[8px] text-slate-400 uppercase font-black mb-1">Controles</p><p className="text-sm font-bold">{formData.safetyClassification.controles.length}</p></div>
+                </div>
+              </div>
+              <ShieldCheck size={150} className="absolute -right-10 -bottom-10 text-white/5 rotate-12" />
+            </div>
+          )}
         </div>
       );
       default: return null;
@@ -477,6 +738,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
         ))}
       </div>
       <div className="flex-1 p-12 overflow-y-auto no-scrollbar">{renderStepContent()}</div>
+
       <div className="px-12 py-8 border-t border-gray-50 bg-white flex justify-between items-center sticky bottom-0 z-10">
         <div className="flex gap-4">
           <button onClick={handleBack} disabled={currentStep === 0} className="px-8 py-4 rounded-[1.5rem] border-2 border-slate-100 text-sm font-black text-slate-400 disabled:opacity-30 flex items-center gap-2 hover:bg-slate-50 transition-all hover:border-slate-200"><ChevronLeft size={20}/> Voltar</button>
