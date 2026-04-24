@@ -272,6 +272,15 @@ export interface DashboardStats {
   pendingHomologations: number;
 }
 
+export type UserRole = 'admin' | 'portaria' | 'fornecedor';
+
+export interface UserSession {
+  uid: string;
+  email: string | null;
+  role: UserRole;
+  displayName?: string | null;
+}
+
 export interface CompanySettings {
   companyName: string;
   logoBase64: string | null;

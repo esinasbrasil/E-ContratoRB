@@ -107,19 +107,19 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, suppliersData, projectsDat
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alertas de Compliance */}
-        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-red-100 flex items-center gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-2">
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-red-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 hidden md:block">
              <Bell className="text-red-100" size={48} />
           </div>
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 shrink-0">
              <ShieldAlert size={32} />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 text-center md:text-left">
              <h2 className="text-lg font-bold text-red-900 leading-tight">Alertas de Vencimento de Documentos</h2>
              <p className="text-sm text-red-600 font-medium opacity-80">Existem 3 fornecedores com documentos de segurança vencendo nos próximos 15 dias.</p>
           </div>
-          <div className="flex gap-3">
-             <div className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-red-700 transition-all">Ver Detalhes</div>
+          <div className="flex gap-3 w-full md:w-auto">
+             <div className="w-full md:w-auto text-center px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-widest cursor-pointer hover:bg-red-700 transition-all">Ver Detalhes</div>
           </div>
         </div>
 

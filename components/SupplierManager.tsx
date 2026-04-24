@@ -316,18 +316,18 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
       )}
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[300px]">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input 
             type="text" 
             placeholder="Buscar por nome ou CNPJ..." 
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button className="flex items-center px-3 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+        <button className="flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium">
           <Filter size={18} className="mr-2" />
           Filtros
         </button>
@@ -335,7 +335,8 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
 
       {/* List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
           <thead className="bg-gray-50 text-gray-600 text-sm">
             <tr>
               <th className="px-6 py-4 font-medium">Fornecedor</th>
@@ -350,14 +351,14 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
               <React.Fragment key={s.id}>
                 <tr className="hover:bg-gray-50 transition-colors group">
                   <td className="px-6 py-4">
-                    <div>
-                      <p className="font-semibold text-gray-900">{s.name}</p>
+                    <div className="max-w-[250px]">
+                      <p className="font-semibold text-gray-900 truncate">{s.name}</p>
                       <div className="flex items-center text-xs text-gray-500 mt-0.5">
-                         <FileText size={12} className="mr-1"/> {s.cnpj}
+                         <FileText size={12} className="mr-1 inline"/> {s.cnpj}
                       </div>
                       {s.address && (
-                          <div className="flex items-center text-xs text-gray-400 mt-0.5 max-w-[200px] truncate">
-                              <Building size={12} className="mr-1 flex-shrink-0"/> {s.address}
+                          <div className="flex items-center text-xs text-gray-400 mt-0.5 truncate">
+                              <Building size={12} className="mr-1 flex-shrink-0 inline"/> {s.address}
                           </div>
                       )}
                     </div>
@@ -443,6 +444,7 @@ const SupplierManager: React.FC<SupplierManagerProps> = ({
             ))}
           </tbody>
         </table>
+        </div>
         {filteredSuppliers.length === 0 && (
           <div className="p-8 text-center text-gray-500">
             Nenhum fornecedor encontrado.

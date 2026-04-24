@@ -244,7 +244,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   const lightGray: [number, number, number] = [241, 245, 249]; // #f1f5f9
   
   const companyName = safeText(settings?.companyName || "GRUPO RESINAS BRASIL");
-  let documentTitle = safeText(data.objectDescription?.includes('REQUISITOS TÉCNICOS') ? 'Ficha de Requisitos p/ Carta Convite' : (settings?.documentTitle || "Ficha de Homologação: Segurança e RH"));
+  let documentTitle = safeText(data.objectDescription?.includes('REQUISITOS TÉCNICOS') ? 'Ficha de Requisitos p/ Carta Convite' : (settings?.documentTitle || "Solicitação de Contrato / Minuta"));
   
   if (data.supplierId === 'convite-rfp') {
     documentTitle = 'Ficha de Requisitos p/ Carta Convite';
@@ -256,7 +256,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   const drawHeader = () => {
     if (settings?.logoBase64) {
       try {
-        doc.addImage(settings.logoBase64, 'PNG', margin, 10, 20, 20, undefined, 'FAST');
+        // Logo no canto superior direito
+        doc.addImage(settings.logoBase64, 'PNG', pageWidth - margin - 25, 10, 25, 25, undefined, 'FAST');
       } catch (e) {
         console.warn("Logo error:", e);
       }
@@ -264,19 +265,21 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-    doc.text(companyName.toUpperCase(), pageWidth - margin, 15, { align: "right" });
+    // Se tiver logo, posiciona o título abaixo dela
+    const titleY = settings?.logoBase64 ? 20 : 15;
+    doc.text(companyName.toUpperCase(), pageWidth - margin, titleY, { align: "right" });
     
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Pedido: ${safeText(data.orderNumber)}`, pageWidth - margin, 20, { align: "right" });
+    doc.text(`Pedido: ${safeText(data.orderNumber)}`, pageWidth - margin, titleY + 5, { align: "right" });
     
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(`${documentTitle} • Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, 24, { align: "right" });
+    doc.text(`${documentTitle} • Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin, titleY + 9, { align: "right" });
     
     doc.setFillColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-    doc.rect(margin, 32, contentWidth, 1.2, 'F');
-    currentY = 42;
+    doc.rect(margin, 35, contentWidth, 1.2, 'F');
+    currentY = 45;
   };
 
   const drawFooter = () => {
@@ -516,66 +519,6 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     currentY += 6;
   });
 
-  // 8.3 Classificação de Segurança (NOVO)
-  if (data.safetyClassification) {
-    printSection("8.3. CLASSIFICAÇÃO DE SEGURANÇA E SAÚDE");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-    doc.text(`Complexidade: ${data.safetyClassification.complexity.toUpperCase()}`, margin, currentY);
-    currentY += 8;
-    
-    const drawSafetyList = (title: string, items: string[]) => {
-      if (!items || items.length === 0) return;
-      if (checkPageOverflow(10)) currentY += 10;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-      doc.text(title.toUpperCase(), margin, currentY);
-      currentY += 5;
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
-      items.forEach(item => {
-        if (checkPageOverflow(5)) currentY += 5;
-        doc.text(` • ${item}`, margin + 3, currentY);
-        currentY += 5;
-      });
-      currentY += 3;
-    };
-
-    drawSafetyList("Normas Aplicáveis", data.safetyClassification.nr);
-    drawSafetyList("Documentos Adicionais", data.safetyClassification.documentos);
-    drawSafetyList("EPIs Identificados", data.safetyClassification.epis);
-    drawSafetyList("Controles de Engenharia/ADM", data.safetyClassification.controles);
-  }
-
-  // 8.4 FICHA DE HOMOLOGAÇÃO: SEGURANÇA E RH (NOVO)
-  printSection("8.4. FICHA DE HOMOLOGAÇÃO: SEGURANÇA E RH");
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-  doc.text("Checklist de documentos obrigatórios para prestação de serviços no Grupo RB.", margin, currentY);
-  currentY += 6;
-
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-  doc.text("DOCUMENTOS DA EMPRESA", margin, currentY);
-  currentY += 5;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
-  homolCompanyDocs.forEach(item => {
-    if (checkPageOverflow(6)) currentY += 6;
-    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin + 3, currentY);
-    currentY += 5;
-  });
-  currentY += 3;
-
-  if (checkPageOverflow(15)) currentY += 15;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-  doc.text("DOCUMENTOS DO COLABORADOR", margin, currentY);
-  currentY += 4;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(100, 100, 100);
-  doc.text("Deve ser apresentada uma pasta para cada colaborador contendo as cópias dos documentos abaixo.", margin, currentY);
-  currentY += 5;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(0, 0, 0);
-  homolEmployeeDocs.forEach(item => {
-    if (checkPageOverflow(6)) currentY += 6;
-    doc.text(`[ ${(data as any)[item.id] ? 'X' : ' '} ] ${item.label}`, margin + 3, currentY);
-    currentY += 5;
-  });
-  currentY += 10;
-
   // 9. ANEXOS
   printSection("9. DOCUMENTOS ANEXOS");
   currentY += 4;
@@ -590,22 +533,17 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
 
   // Footer Signatures
   checkPageOverflow(50);
-  currentY += 20;
+  currentY += 30;
   doc.setDrawColor(150, 150, 150);
   
-  // Signature Line 1: Fornecedor
+  // Signature Line 1: Solicitante / Gestor
   doc.line(margin, currentY, margin + 75, currentY);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
-  doc.text("Assinatura do Fornecedor", margin + 37.5, currentY + 5, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+  doc.text("Solicitante / Gestor do Contrato", margin + 37.5, currentY + 5, { align: "center" });
   
-  // Signature Line 2: Segurança do Trabalho / RH (Grupo RB)
+  // Signature Line 2: Aprovação Diretoria
   doc.line(pageWidth - margin - 75, currentY, pageWidth - margin, currentY);
-  doc.text("Segurança do Trabalho / RH (Grupo RB)", pageWidth - margin - 37.5, currentY + 5, { align: "center" });
-
-  currentY += 20;
-  // Additional signature or manager
-  doc.line(margin + (contentWidth / 2) - 37.5, currentY, margin + (contentWidth / 2) + 37.5, currentY);
-  doc.text("Responsável Técnico / Gestor", pageWidth / 2, currentY + 5, { align: "center" });
+  doc.text("Aprovação Diretoria / Jurídico", pageWidth - margin - 37.5, currentY + 5, { align: "center" });
 
   drawFooter();
   return doc.output('blob');

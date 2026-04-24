@@ -15,6 +15,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { auth } from '../firebase';
+import Logo from './Logo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,20 +35,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
   }, []);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Painel', icon: <LayoutDashboard size={20} /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { id: 'suppliers', label: 'Fornecedores', icon: <Users size={20} /> },
     { id: 'projects', label: 'Projetos', icon: <Briefcase size={20} /> },
     { id: 'units', label: 'Unidades', icon: <Building2 size={20} /> },
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
-    { id: 'procedures', label: 'Prazos & Fluxo', icon: <History size={20} /> },
-    { id: 'access', label: 'Gestão de Acesso', icon: <ShieldCheck size={20} /> },
-    { id: 'types', label: 'Tipos de serviço', icon: <CheckSquare size={20} /> },
+    { id: 'procedures', label: 'Prazos e Fluxo', icon: <History size={20} /> },
+    { id: 'access', label: 'Controle de Acesso', icon: <ShieldCheck size={20} /> },
+    { id: 'types', label: 'Tipos de Serviço', icon: <CheckSquare size={20} /> },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans select-none" data-version="2.3">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans select-none" data-version="2.4">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -65,12 +66,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
         `}
       >
         <div className="flex items-center justify-between p-6 border-b border-emerald-800/30">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-950/20">
-              <FileText className="text-white" size={20} />
-            </div>
-            <span className="text-xl font-black tracking-tight">EcoContrato</span>
-          </div>
+          <Logo variant="light" showText={true} className="h-10" />
           <button onClick={toggleSidebar} className="lg:hidden text-emerald-200">
             <X size={24} />
           </button>
@@ -121,8 +117,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
             }}
             className="flex items-center w-full px-4 py-3 text-sm font-bold text-emerald-100/40 hover:text-white hover:bg-emerald-800/50 rounded-xl transition-all"
           >
-            <LogOut size={20} className="mr-4" />
-            Voltar ao Portal
+            <LayoutDashboard size={20} className="mr-4" />
+            Voltar ao Hub
           </button>
         </div>
       </aside>

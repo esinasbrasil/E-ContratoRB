@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { fetchCNPJData } from '../services/cnpjService';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface AccessManagementProps {
   suppliers: Supplier[];
@@ -111,20 +112,29 @@ const AccessManagement: React.FC<AccessManagementProps> = ({ suppliers }) => {
   };
 
   useEffect(() => {
-    const q = query(collection(db, 'visits'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const visitData: VisitRecord[] = [];
-      snapshot.forEach((doc) => {
-        visitData.push({ id: doc.id, ...doc.data() } as VisitRecord);
-      });
-      setVisits(visitData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
-      setLoading(false);
-    }, (error) => {
-      console.error("Error in snapshot listener:", error);
-      setLoading(false);
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const q = query(collection(db, 'visits'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const visitData: VisitRecord[] = [];
+          snapshot.forEach((doc) => {
+            visitData.push({ id: doc.id, ...doc.data() } as VisitRecord);
+          });
+          setVisits(visitData.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+          setLoading(false);
+        }, (error) => {
+          console.error("Error in snapshot listener:", error);
+          setLoading(false);
+        });
+        
+        return () => unsubscribe();
+      } else {
+        setVisits([]);
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsubAuth();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

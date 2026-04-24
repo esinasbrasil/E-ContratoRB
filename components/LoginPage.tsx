@@ -3,14 +3,16 @@ import React, { useState } from 'react';
 import { auth } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertCircle, ShieldCheck, Globe, Settings, ArrowRight, Mail, Lock } from 'lucide-react';
+import Logo from './Logo';
 
 interface LoginPageProps {
   onDemoLogin?: () => void;
+  onCustomLogin?: (role: 'portaria' | 'fornecedor') => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => {
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('fecampos120@gmail.com');
+  const [login, setLogin] = useState('fecampos120@gmail.com');
   const [password, setPassword] = useState('@adm2026');
   const [error, setError] = useState<{message: string, isProvider: boolean} | null>(null);
 
@@ -34,8 +36,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Bypasses para Portaria e Fornecedor
+    if (login === 'portaria' && password === '@portaria123') {
+      onCustomLogin?.('portaria');
+      return;
+    }
+    if (login === 'fornecedor' && password === '@fornecedor123') {
+      onCustomLogin?.('fornecedor');
+      return;
+    }
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, login, password);
     } catch (err: any) {
       console.error("Erro Firebase Auth Email:", err);
       let message = "Erro ao entrar. Verifique suas credenciais.";
@@ -58,12 +71,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
         <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-50 rounded-full blur-3xl opacity-50"></div>
 
         <div className="relative">
-          <div className="bg-emerald-600 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-200 rotate-6 hover:rotate-0 transition-all duration-500">
-            <ShieldCheck className="text-white" size={40} />
+          <div className="mb-10 flex justify-center">
+            <Logo variant="dark" showText={true} className="h-16" />
           </div>
           
-          <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tighter">Portal RB</h1>
-          <p className="text-slate-500 mb-10 text-sm font-medium">Contratos & Homologação</p>
+          <h1 className="text-xl font-bold text-slate-400 mb-8 uppercase tracking-widest opacity-50">Autenticação Sistema</h1>
 
           {error && (
             <div className="mb-8 p-5 rounded-3xl bg-amber-50 border border-amber-100 text-left animate-in fade-in slide-in-from-top-2">
@@ -81,10 +93,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
-                type="email"
-                placeholder="E-mail"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="Login ou E-mail"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium"
                 required
               />

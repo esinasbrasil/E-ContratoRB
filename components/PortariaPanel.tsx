@@ -148,27 +148,27 @@ const PortariaPanel: React.FC<PortariaPanelProps> = ({ suppliers, contracts, onB
             searchResult.status === 'authorized' ? 'border-emerald-500/30' : 
             searchResult.status === 'blocked' ? 'border-red-500/30' : 'border-orange-500/30'
           }`}>
-            <div className={`p-10 flex items-center justify-between ${
+            <div className={`p-6 md:p-10 flex flex-col md:flex-row items-center md:justify-between gap-6 ${
               searchResult.status === 'authorized' ? 'bg-emerald-500/10' : 
               searchResult.status === 'blocked' ? 'bg-red-500/10' : 'bg-orange-500/10'
             }`}>
-              <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
+              <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+                <div className={`w-20 h-20 shrink-0 rounded-2xl flex items-center justify-center ${
                   searchResult.status === 'authorized' ? 'bg-emerald-500 text-white' : 
                   searchResult.status === 'blocked' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                 }`}>
                   {searchResult.type === 'employee' ? <User size={40} /> : searchResult.type === 'visit' ? <Car size={40} /> : <Building size={40} />}
                 </div>
                 <div>
-                  <h2 className="text-3xl font-black text-white tracking-tighter">{searchResult.name.toUpperCase()}</h2>
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter truncate max-w-[300px] md:max-w-none">{searchResult.name.toUpperCase()}</h2>
                   <p className={`text-sm font-bold mt-1 ${
                     searchResult.status === 'authorized' ? 'text-emerald-400' : 
                     searchResult.status === 'blocked' ? 'text-red-400' : 'text-orange-400'
                   }`}>{searchResult.description}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-black text-xs uppercase tracking-[0.2em] ${
+              <div className="text-right w-full md:w-auto">
+                <div className={`inline-flex items-center justify-center w-full md:w-auto gap-2 px-6 py-3 rounded-full font-black text-xs uppercase tracking-[0.2em] ${
                   searchResult.status === 'authorized' ? 'bg-emerald-500 text-white' : 
                   searchResult.status === 'blocked' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white shadow-lg'
                 }`}>

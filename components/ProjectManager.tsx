@@ -231,18 +231,18 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({ projects, units, onAdd,
                       <div className="flex justify-between items-start">
                          <div>
                             <h4 className="text-lg font-bold text-gray-900">{project.name}</h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
                                 <div className="flex items-center">
-                                    <MapPin size={14} className="mr-2 text-gray-400" /> {getUnitName(project.unitId)}
+                                    <MapPin size={14} className="mr-2 text-gray-400 font-bold" /> {getUnitName(project.unitId)}
                                 </div>
                                 <div className="flex items-center">
-                                    <Hash size={14} className="mr-2 text-gray-400" /> CC: {project.costCenter}
+                                    <Hash size={14} className="mr-2 text-gray-400 font-bold" /> CC: {project.costCenter}
                                 </div>
                                 <div className="flex items-center text-green-600 font-medium">
-                                    <DollarSign size={14} className="mr-1" /> R$ {project.estimatedValue.toLocaleString('pt-BR')}
+                                    <DollarSign size={14} className="mr-1 font-bold" /> R$ {project.estimatedValue.toLocaleString('pt-BR')}
                                 </div>
-                                <div className="flex items-center">
-                                    <Tag size={14} className="mr-2 text-gray-400" /> Pedido: {project.orderNumber || 'N/A'}
+                                <div className="flex items-center text-gray-500">
+                                    <Tag size={14} className="mr-2 font-bold" /> Pedido: {project.orderNumber || 'N/A'}
                                 </div>
                             </div>
                          </div>

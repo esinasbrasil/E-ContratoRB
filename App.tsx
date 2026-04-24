@@ -18,7 +18,8 @@ import PortariaPanel from './components/PortariaPanel';
 import SupplierPortal from './components/SupplierPortal';
 import AccessManagement from './components/AccessManagement';
 import LoginPage from './components/LoginPage';
-import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, AppTab } from './types';
+import Logo from './components/Logo';
+import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, AppTab, UserRole } from './types';
 import { generateId, cleanObject } from './utils';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
@@ -63,7 +64,11 @@ interface FirestoreErrorInfo {
   }
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+function handleFirestoreError(error: any, operationType: OperationType, path: string | null) {
+  const isQuotaError = error?.code === 'quota-exceeded' || 
+                      error?.message?.includes('quota-exceeded') || 
+                      error?.message?.includes('Quota limit exceeded');
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -82,18 +87,26 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   }
+  
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  if (isQuotaError) {
+    // We don't throw for quota errors to avoid crashing the whole React app
+    // The UI should handle this state
+    return true;
+  }
+  
   throw new Error(JSON.stringify(errInfo));
 }
 
-const LOGO_RB_FIXO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABNmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDAgNzkuMTYwNDUxLCAyMDE3LzA1LzA2LTAxOjA4OjIxICAgICAgICAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIi8+CiA8L3JkZjpSREY+CjwveDp4bXB0YT4KPD94cGFja2V0IGVuZD0idyI/PlS999MAAAAZSURBVHgB7cEBDQAAAMKg909tDwcUAAAAAIB3A08AAAF7v9SRAAAAAElFTkSuQmCC";
-
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
+  const [userRole, setUserRole] = useState<UserRole>('admin');
   const [authChecking, setAuthChecking] = useState(true);
   const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
@@ -105,7 +118,7 @@ const App: React.FC = () => {
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     companyName: 'GRUPO RESINAS BRASIL',
-    logoBase64: LOGO_RB_FIXO,
+    logoBase64: '',
     footerText: 'https://gruporesinasbrasil.com.br/',
     primaryColor: '#064e3b',
     documentTitle: 'Solicitação de Contrato / Minuta'
@@ -119,6 +132,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Define role baseado no e-mail do admin
+        const role = user.email === 'fecampos120@gmail.com' ? 'admin' : 'admin'; // Por padrão, usuários logados via Firebase são admin se forem da equipe
+        setUserRole(role);
         setSession({ 
           user: { 
             uid: user.uid, 
@@ -127,12 +143,30 @@ const App: React.FC = () => {
           } 
         });
       } else {
-        setSession(null);
+        // Mantém a sessão se for um bypass manual (portaria/fornecedor)
+        if (!session?.isCustom) {
+          setSession(null);
+          setUserRole('admin');
+        }
       }
       setAuthChecking(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [session]);
+
+  const handleCustomLogin = (role: 'portaria' | 'fornecedor') => {
+    setSession({
+      user: {
+        uid: `custom_${role}`,
+        email: `${role}@portal.rb`,
+        displayName: role === 'portaria' ? 'Equipe Portaria' : 'Portal Fornecedor'
+      },
+      isCustom: true
+    });
+    setUserRole(role);
+    // Redireciona automaticamente para o módulo correto
+    setCurrentModule(role === 'portaria' ? 'portaria' : 'portal');
+  };
 
   useEffect(() => {
     if (!session) return;
@@ -151,7 +185,8 @@ const App: React.FC = () => {
         });
         setter(data);
       }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, colName);
+        const handled = handleFirestoreError(error, OperationType.LIST, colName);
+        if (handled) setQuotaExceeded(true);
       });
       unsubscribers.push(unsub);
     };
@@ -170,7 +205,8 @@ const App: React.FC = () => {
         setCompanySettings(snapshot.data() as CompanySettings);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'company_settings/global');
+      const handled = handleFirestoreError(error, OperationType.GET, 'company_settings/global');
+      if (handled) setQuotaExceeded(true);
     });
     unsubscribers.push(settingsUnsub);
 
@@ -336,125 +372,197 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session) {
-    return <LoginPage onDemoLogin={() => signInAnonymously(auth)} />;
+  if (!session && !authChecking) {
+    return <LoginPage 
+      onDemoLogin={() => {
+        signInAnonymously(auth);
+        setUserRole('admin');
+      }} 
+      onCustomLogin={handleCustomLogin}
+    />;
   }
+
+  const renderModule = () => {
+    if (quotaExceeded) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
+          <div className="max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border border-red-100 flex flex-col items-center">
+            <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center mb-8">
+              <AlertTriangle size={40} className="text-red-500" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight uppercase">Limite de Uso Atingido</h2>
+            <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight">
+              O limite gratuito diário de leitura do banco de dados (Firebase) foi atingido. 
+              O sistema voltará a funcionar normalmente assim que o limite for resetado pelo Google (geralmente à meia-noite). 
+            </p>
+            <div className="flex flex-col gap-3 w-full">
+               <button 
+                onClick={() => window.location.reload()}
+                className="w-full py-4 px-6 rounded-2xl text-xs font-black text-white bg-red-600 hover:bg-red-700 transition-all uppercase tracking-widest"
+               >
+                Tentar Novamente
+               </button>
+               <button 
+                onClick={handleLogout}
+                className="w-full py-4 px-6 rounded-2xl text-xs font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest"
+               >
+                Sair do Sistema
+               </button>
+            </div>
+            <p className="mt-8 text-[9px] text-slate-300 font-bold uppercase tracking-widest">
+              Para mais detalhes, consulte os limites do plano Spark no Firebase.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Restringe acesso baseado no papel
+    if (userRole === 'portaria') {
+       return <PortariaPanel 
+          suppliers={suppliers}
+          contracts={contracts}
+          onBack={() => {}}
+        />;
+    }
+
+    if (userRole === 'fornecedor') {
+       return <SupplierPortal 
+          suppliers={suppliers}
+          onBack={() => {}}
+          onUpdateSupplier={s => saveAction('suppliers', s)}
+        />;
+    }
+
+    return (
+      <>
+        {currentModule === 'home' && (
+          <LandingPage onSelectModule={(mod) => {
+            if (mod === 'procedures') {
+              setCurrentModule('contracts');
+              setActiveTab('procedures');
+            } else {
+              setCurrentModule(mod);
+            }
+          }} userRole={userRole} />
+        )}
+        {currentModule === 'engineering' && (
+          <EngineeringModule 
+            projects={projects} units={units} 
+            onAdd={p => saveAction('projects', p)}
+            onUpdate={p => saveAction('projects', p)} 
+            onBack={() => setCurrentModule('home')}
+          />
+        )}
+        {currentModule === 'compliance' && (
+          <SupplierCompliance 
+            suppliers={suppliers}
+            units={units}
+            projects={projects}
+            settings={companySettings}
+            onBack={() => setCurrentModule('home')} 
+          />
+        )}
+        {currentModule === 'portaria' && (
+          <PortariaPanel 
+            suppliers={suppliers}
+            contracts={contracts}
+            onBack={() => setCurrentModule('home')}
+          />
+        )}
+        {currentModule === 'portal' && (
+          <SupplierPortal 
+            suppliers={suppliers}
+            onBack={() => setCurrentModule('home')}
+            onUpdateSupplier={s => saveAction('suppliers', s)}
+          />
+        )}
+        {currentModule === 'contracts' && (
+          <>
+            {contractWizardSupplierId !== null && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">
+                <ContractWizard 
+                  suppliers={suppliers} projects={projects} units={units} settings={companySettings}
+                  preSelectedSupplierId={contractWizardSupplierId === 'new' ? undefined : contractWizardSupplierId}
+                  initialData={editingContract?.details} onCancel={() => { setContractWizardSupplierId(null); setEditingContract(null); }}
+                  onSave={handleSaveContract}
+                />
+              </div>
+            )}
+            <Layout activeTab={activeTab} onNavigate={(tab) => {
+              if (tab === 'home') {
+                setCurrentModule('home');
+              } else {
+                setActiveTab(tab);
+              }
+            }}>
+              <div className="absolute top-4 right-20 z-20">
+                 <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
+                   <LogOut size={14}/> Sair
+                 </button>
+              </div>
+              {loading && (
+                <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
+                  <Loader2 size={16} className="animate-spin" /> Sincronizando Nuvem...
+                </div>
+              )}
+              {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
+              {activeTab === 'suppliers' && (
+                <SupplierManager 
+                  suppliers={suppliers} serviceCategories={serviceCategories} 
+                  onAdd={s => saveAction('suppliers', s)} 
+                  onUpdate={s => saveAction('suppliers', s)} 
+                  onDelete={id => deleteAction('suppliers', id)}
+                  onOpenContractWizard={setContractWizardSupplierId} 
+                  onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
+                  analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
+                />
+              )}
+              {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p)} onUpdate={p => saveAction('projects', p)} onDelete={id => deleteAction('projects', id)} />}
+              {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u)} onUpdate={u => saveAction('units', u)} onDelete={id => deleteAction('units', id)} />}
+              {activeTab === 'contracts' && (
+                <ContractManager 
+                  contracts={contracts} 
+                  suppliers={suppliers} 
+                  settings={companySettings} 
+                  units={units} 
+                  onOpenWizard={() => setContractWizardSupplierId('new')} 
+                  onEditContract={loadContractWithAttachments} 
+                  onDeleteContract={id => deleteAction('contracts', id)} 
+                />
+              )}
+              {activeTab === 'procedures' && (
+                <ProcedureManager 
+                  procedures={processos} 
+                  projects={projects} 
+                  suppliers={suppliers} 
+                  settings={procedureSettings}
+                  onSaveSettings={s => saveAction('procedure_settings', s)}
+                  onAdd={p => saveAction('processos', p)} 
+                  onUpdate={p => saveAction('processos', p)} 
+                  onDelete={id => deleteAction('processos', id)} 
+                />
+              )}
+              {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
+              {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
+              {activeTab === 'access' && <AccessManagement suppliers={suppliers} />}
+            </Layout>
+          </>
+        )}
+      </>
+    );
+  };
 
   return (
     <>
-      {currentModule === 'home' && (
-        <LandingPage onSelectModule={(mod) => {
-          if (mod === 'procedures') {
-            setCurrentModule('contracts');
-            setActiveTab('procedures');
-          } else {
-            setCurrentModule(mod);
-          }
-        }} />
+      {userRole !== 'admin' && (
+        <div className="fixed top-4 left-4 z-[60]">
+           <button onClick={handleLogout} className="bg-slate-900 border border-slate-800 text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-xs font-black hover:bg-slate-800 transition-all shadow-2xl">
+             <LogOut size={14} /> Sair do Sistema
+           </button>
+        </div>
       )}
-      {currentModule === 'engineering' && (
-        <EngineeringModule 
-          projects={projects} units={units} 
-          onAdd={p => saveAction('projects', p)}
-          onUpdate={p => saveAction('projects', p)} 
-          onBack={() => setCurrentModule('home')}
-        />
-      )}
-      {currentModule === 'compliance' && (
-        <SupplierCompliance 
-          suppliers={suppliers}
-          units={units}
-          projects={projects}
-          settings={companySettings}
-          onBack={() => setCurrentModule('home')} 
-        />
-      )}
-      {currentModule === 'portaria' && (
-        <PortariaPanel 
-          suppliers={suppliers}
-          contracts={contracts}
-          onBack={() => setCurrentModule('home')}
-        />
-      )}
-      {currentModule === 'portal' && (
-        <SupplierPortal 
-          suppliers={suppliers}
-          onBack={() => setCurrentModule('home')}
-          onUpdateSupplier={s => saveAction('suppliers', s)}
-        />
-      )}
-      {currentModule === 'contracts' && (
-        <>
-          {contractWizardSupplierId !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">
-              <ContractWizard 
-                suppliers={suppliers} projects={projects} units={units} settings={companySettings}
-                preSelectedSupplierId={contractWizardSupplierId === 'new' ? undefined : contractWizardSupplierId}
-                initialData={editingContract?.details} onCancel={() => { setContractWizardSupplierId(null); setEditingContract(null); }}
-                onSave={handleSaveContract}
-              />
-            </div>
-          )}
-          <Layout activeTab={activeTab} onNavigate={(tab) => {
-            if (tab === 'home') {
-              setCurrentModule('home');
-            } else {
-              setActiveTab(tab);
-            }
-          }}>
-            <div className="absolute top-4 right-20 z-20">
-               <button onClick={handleLogout} className="text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex items-center gap-2">
-                 <LogOut size={14}/> Sair
-               </button>
-            </div>
-            {loading && (
-              <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
-                <Loader2 size={16} className="animate-spin" /> Sincronizando Nuvem...
-              </div>
-            )}
-            {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
-            {activeTab === 'suppliers' && (
-              <SupplierManager 
-                suppliers={suppliers} serviceCategories={serviceCategories} 
-                onAdd={s => saveAction('suppliers', s)} 
-                onUpdate={s => saveAction('suppliers', s)} 
-                onDelete={id => deleteAction('suppliers', id)}
-                onOpenContractWizard={setContractWizardSupplierId} 
-                onRiskAnalysis={async s => { setAnalyzingRisk(s.id); const report = await analyzeSupplierRisk(s.name, s.serviceType); setRiskReport({ id: s.id, text: report }); setAnalyzingRisk(null); }}
-                analyzingRiskId={analyzingRisk} riskReport={riskReport} onCloseRiskReport={() => setRiskReport(null)}
-              />
-            )}
-            {activeTab === 'projects' && <ProjectManager projects={projects} units={units} onAdd={p => saveAction('projects', p)} onUpdate={p => saveAction('projects', p)} onDelete={id => deleteAction('projects', id)} />}
-            {activeTab === 'units' && <UnitManager units={units} onAdd={u => saveAction('units', u)} onUpdate={u => saveAction('units', u)} onDelete={id => deleteAction('units', id)} />}
-            {activeTab === 'contracts' && (
-              <ContractManager 
-                contracts={contracts} 
-                suppliers={suppliers} 
-                settings={companySettings} 
-                units={units} 
-                onOpenWizard={() => setContractWizardSupplierId('new')} 
-                onEditContract={loadContractWithAttachments} 
-                onDeleteContract={id => deleteAction('contracts', id)} 
-              />
-            )}
-            {activeTab === 'procedures' && (
-              <ProcedureManager 
-                procedures={processos} 
-                projects={projects} 
-                suppliers={suppliers} 
-                settings={procedureSettings}
-                onSaveSettings={s => saveAction('procedure_settings', s)}
-                onAdd={p => saveAction('processos', p)} 
-                onUpdate={p => saveAction('processos', p)} 
-                onDelete={id => deleteAction('processos', id)} 
-              />
-            )}
-            {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
-            {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
-            {activeTab === 'access' && <AccessManagement suppliers={suppliers} />}
-          </Layout>
-        </>
-      )}
+      {renderModule()}
     </>
   );
 };

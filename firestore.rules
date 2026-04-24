@@ -1,127 +1,97 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: suppliers
-    // Fields: id, user_id, name, cnpj, address, serviceType, status, rating, docs
-    //
-    // Collection: projects
-    // Fields: id, user_id, name, unitId, costCenter, orderNumber, description, estimatedValue, startDate, endDate, type, status, attachments, requiredNRs
-    //
-    // Collection: units
-    // Fields: id, user_id, name, address, cnpj, ie, email, phone
-    //
-    // Collection: service_categories
-    // Fields: id, name, description
-    //
-    // Collection: contracts
-    // Fields: id, user_id, projectId, supplierId, value, createdAt, status, details
-    //
-    // Collection: processos
-    // Fields: id, user_id, projectId, supplierId, projectName, supplierName, steps, status, createdAt
-    //
-    // Collection: procedure_settings
-    // Fields: id, steps
-    //
-    // Collection: company_settings
-    // Fields: companyName, logoBase64, footerText, primaryColor, documentTitle
-    //
-    // ===============================================================
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isDocOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.user_id;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
-        (
-          ('email' in request.auth.token && (
-            request.auth.token.email.lower() == "fernando.campos.gruporb@gmail.com" || 
-            request.auth.token.email.lower() == "fecampos120@gmail.com"
-          )) ||
-          request.auth.uid == "9eKuuQvm28V6b2H7DD23JDQLbLG2"
-        );
+      return isSignedIn() && (
+        request.auth.token.email.lower() in [
+          "fernando.campos.gruporb@gmail.com",
+          "fecampos120@gmail.com"
+        ] ||
+        request.auth.uid == "9eKuuQvm28V6b2H7DD23JDQLbLG2"
+      );
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidCNPJ(cnpj) {
-      return cnpj is string && cnpj.size() >= 14 && cnpj.size() <= 18;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     // ===============================================================
     // Collection Rules
     // ===============================================================
 
-    // Path for connection testing
     match /test/connection {
-      allow read: if isAuthenticated();
+      allow read: if isSignedIn();
     }
 
     match /suppliers/{supplierId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+      // Allow creation by authenticated users for onboarding (if needed)
+      allow create: if isSignedIn();
     }
 
     match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /units/{unitId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /service_categories/{categoryId} {
-      allow read: if isAuthenticated();
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
     match /contracts/{contractId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isOwner(request.resource.data.user_id);
       
       match /attachments/{attachmentId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && (get(/databases/$(database)/documents/contracts/$(contractId)).data.user_id == request.auth.uid || isAdmin());
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
       }
     }
 
     match /processos/{processoId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
-    }
-
-    match /visits/{visitId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /procedure_settings/{settingsId} {
-      allow read: if isAuthenticated();
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
     match /company_settings/{settingsId} {
-      allow read: if isAuthenticated();
+      allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      // Allow authenticated users to read and write visits
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
   }
 }
+
