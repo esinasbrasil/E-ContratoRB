@@ -65,12 +65,22 @@ interface FirestoreErrorInfo {
 }
 
 function handleFirestoreError(error: any, operationType: OperationType, path: string | null) {
-  const isQuotaError = error?.code === 'quota-exceeded' || 
-                      error?.message?.includes('quota-exceeded') || 
-                      error?.message?.includes('Quota limit exceeded');
+  const errorMessage = error instanceof Error ? error.message : (error?.message || String(error));
+  const errorCode = error?.code || '';
+
+  const isQuotaError = errorCode === 'quota-exceeded' || 
+                      errorCode === 'resource-exhausted' ||
+                      errorCode.includes('quota') ||
+                      errorMessage.toLowerCase().includes('quota') || 
+                      errorMessage.toLowerCase().includes('limit exceeded') ||
+                      errorMessage.toLowerCase().includes('rate limit') ||
+                      errorMessage.toLowerCase().includes('429') ||
+                      errorMessage.toLowerCase().includes('resource_exhausted') ||
+                      errorMessage.toLowerCase().includes('reads') ||
+                      errorMessage.toLowerCase().includes('daily read units');
 
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -107,6 +117,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [ignoreQuota, setIgnoreQuota] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
@@ -129,11 +141,83 @@ const App: React.FC = () => {
   const [analyzingRisk, setAnalyzingRisk] = useState<string | null>(null);
   const [riskReport, setRiskReport] = useState<{ id: string, text: string } | null>(null);
 
+  // --- PERSISTÊNCIA LOCAL (FALLBACK) ---
+  
+  // Carregar backup local ao iniciar se o Firebase estiver inacessível ou vazio
+  useEffect(() => {
+    const backupContracts = localStorage.getItem('rb_contracts_v1');
+    const backupSettings = localStorage.getItem('rb_settings_v1');
+    
+    if (backupContracts) {
+      try {
+        const parsed = JSON.parse(backupContracts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setContracts(prev => prev.length === 0 ? parsed : prev);
+        }
+      } catch (e) { console.warn("Erro ao restaurar contratos localmente", e); }
+    }
+    
+    if (backupSettings) {
+      try {
+        const parsed = JSON.parse(backupSettings);
+        if (parsed.companyName) {
+          setCompanySettings(parsed);
+        }
+      } catch (e) { console.warn("Erro ao restaurar configurações localmente", e); }
+    }
+  }, []);
+
+  // Salvar backup local sempre que os dados mudarem
+  useEffect(() => {
+    if (contracts.length > 0) localStorage.setItem('rb_contracts_v1', JSON.stringify(contracts));
+    if (suppliers.length > 0) localStorage.setItem('rb_suppliers_v1', JSON.stringify(suppliers));
+    if (projects.length > 0) localStorage.setItem('rb_projects_v1', JSON.stringify(projects));
+    if (units.length > 0) localStorage.setItem('rb_units_v1', JSON.stringify(units));
+    if (serviceCategories.length > 0) localStorage.setItem('rb_service_categories_v1', JSON.stringify(serviceCategories));
+    if (processos.length > 0) localStorage.setItem('rb_processos_v1', JSON.stringify(processos));
+  }, [contracts, suppliers, projects, units, serviceCategories, processos]);
+
+  useEffect(() => {
+    if (companySettings) {
+      localStorage.setItem('rb_settings_v1', JSON.stringify(companySettings));
+    }
+  }, [companySettings]);
+
+  // Carregar todos os backups locais ao iniciar
+  useEffect(() => {
+    const loadBackup = (key: string, setter: (data: any) => void) => {
+      const data = localStorage.getItem(key);
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length > 0) setter(parsed);
+        } catch (e) { console.warn(`Erro ao restaurar ${key}`, e); }
+      }
+    };
+
+    loadBackup('rb_contracts_v1', setContracts);
+    loadBackup('rb_suppliers_v1', setSuppliers);
+    loadBackup('rb_projects_v1', setProjects);
+    loadBackup('rb_units_v1', setUnits);
+    loadBackup('rb_service_categories_v1', setServiceCategories);
+    loadBackup('rb_processos_v1', setProcessos);
+    
+    const settings = localStorage.getItem('rb_settings_v1');
+    if (settings) {
+      try {
+        const parsed = JSON.parse(settings);
+        if (parsed.companyName) setCompanySettings(parsed);
+      } catch (e) {}
+    }
+  }, []);
+
+  // --- FIM DA PERSISTÊNCIA LOCAL ---
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         // Define role baseado no e-mail do admin
-        const role = user.email === 'fecampos120@gmail.com' ? 'admin' : 'admin'; // Por padrão, usuários logados via Firebase são admin se forem da equipe
+        const role = 'admin'; // Por padrão, usuários logados via Firebase são admin se forem da equipe
         setUserRole(role);
         setSession({ 
           user: { 
@@ -152,7 +236,7 @@ const App: React.FC = () => {
       setAuthChecking(false);
     });
     return () => unsubscribe();
-  }, [session]);
+  }, []);
 
   const handleCustomLogin = (role: 'portaria' | 'fornecedor') => {
     setSession({
@@ -169,7 +253,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || (quotaExceeded && !ignoreQuota)) return;
 
     const unsubscribers: (() => void)[] = [];
 
@@ -213,23 +297,10 @@ const App: React.FC = () => {
     return () => unsubscribers.forEach(unsub => unsub());
   }, [session]);
 
-  useEffect(() => {
-    // Test connection to Firestore
-    const testConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-        }
-      }
-    };
-    testConnection();
-  }, []);
-
   const handleLogout = async () => {
     await signOut(auth);
     setSession(null);
+    setOfflineMode(false);
   };
 
   const saveAction = async (table: string, data: any): Promise<boolean> => {
@@ -253,14 +324,9 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error(`Erro ao salvar em ${table}:`, err);
       
-      const errorMessage = err.message || String(err);
-      // Firebase error codes are often in err.code
-      if (err.code === 'permission-denied' || errorMessage.includes('permission-denied') || errorMessage.includes('insufficient permissions')) {
-         alert(`Erro de Permissão: Você não tem permissão para salvar na coleção "${table}". Verifique se você é o dono deste registro ou administrador.`);
-      } else if (err.code === 'quota-exceeded') {
-         alert(`Limite atingido: O limite gratuito do Firebase foi excedido. Os dados serão resetados amanhã.`);
-      } else {
-         alert(`Falha ao salvar em "${table}": ${errorMessage}`);
+      const handled = handleFirestoreError(err, OperationType.WRITE, table);
+      if (handled) {
+        setQuotaExceeded(true);
       }
       return false;
     } finally {
@@ -277,6 +343,7 @@ const App: React.FC = () => {
      // 2. Criar uma versão "leve" do checklist (sem os base64 pesados) para o documento principal
      const lightweightDetails = {
        ...data,
+       createdAt: editingContract?.createdAt || new Date().toISOString(),
        attachments: data.attachments.map(att => ({
          ...att,
          fileData: "" // Limpamos o dado binário no documento principal
@@ -342,9 +409,11 @@ const App: React.FC = () => {
 
       setEditingContract(contractWithFiles);
       setContractWizardSupplierId(contract.supplierId);
-    } catch (err) {
-      console.error("Erro ao carregar anexos:", err);
-      // Se falhar, carregamos sem anexos mesmo
+    } catch (err: any) {
+      const handled = handleFirestoreError(err, OperationType.LIST, `contracts/${contract.id}/attachments`);
+      if (handled) setQuotaExceeded(true);
+      
+      // Fallback para os detalhes sem os binários pesados
       setEditingContract(contract);
       setContractWizardSupplierId(contract.supplierId);
     } finally {
@@ -357,10 +426,11 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       await deleteDoc(doc(db, table, id));
-    } catch (err: any) { 
-      alert(`Erro ao excluir: ${err.message}`); 
-    } finally { 
-      setLoading(false); 
+    } catch (err: any) {
+      const handled = handleFirestoreError(err, OperationType.DELETE, `${table}/${id}`);
+      if (handled) setQuotaExceeded(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -372,51 +442,66 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session && !authChecking) {
+  if (!session) {
     return <LoginPage 
       onDemoLogin={() => {
-        signInAnonymously(auth);
+        try {
+          signInAnonymously(auth).catch(e => console.warn("Firebase Auth falhou, entrando em modo offline puramente local", e));
+        } catch (e) {}
+        setSession({ 
+          user: { 
+            uid: 'offline_user', 
+            email: 'offline@portal.rb', 
+            displayName: 'Usuário Offline' 
+          },
+          isOffline: true
+        });
         setUserRole('admin');
+        setOfflineMode(true);
       }} 
       onCustomLogin={handleCustomLogin}
     />;
   }
 
-  const renderModule = () => {
-    if (quotaExceeded) {
-      return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
-          <div className="max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border border-red-100 flex flex-col items-center">
-            <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center mb-8">
-              <AlertTriangle size={40} className="text-red-500" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight uppercase">Limite de Uso Atingido</h2>
-            <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight">
-              O limite gratuito diário de leitura do banco de dados (Firebase) foi atingido. 
-              O sistema voltará a funcionar normalmente assim que o limite for resetado pelo Google (geralmente à meia-noite). 
-            </p>
-            <div className="flex flex-col gap-3 w-full">
-               <button 
-                onClick={() => window.location.reload()}
-                className="w-full py-4 px-6 rounded-2xl text-xs font-black text-white bg-red-600 hover:bg-red-700 transition-all uppercase tracking-widest"
-               >
-                Tentar Novamente
-               </button>
-               <button 
-                onClick={handleLogout}
-                className="w-full py-4 px-6 rounded-2xl text-xs font-black text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest"
-               >
-                Sair do Sistema
-               </button>
-            </div>
-            <p className="mt-8 text-[9px] text-slate-300 font-bold uppercase tracking-widest">
-              Para mais detalhes, consulte os limites do plano Spark no Firebase.
-            </p>
+  if (quotaExceeded && !ignoreQuota) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border border-red-100 flex flex-col items-center">
+          <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center mb-8">
+            <AlertTriangle size={40} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight uppercase">Limite de Uso do Google</h2>
+          <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight">
+            Este projeto atingiu o limite gratuito de acessos ao banco de dados do Google (50 mil leituras/dia). 
+            <br/><br/>
+            Para não perder seu trabalho, você pode continuar usando o sistema no **Modo Offline**. Os dados que você já salvou neste navegador continuarão disponíveis.
+          </p>
+          <div className="flex flex-col gap-3 w-full">
+             <button 
+              onClick={() => setIgnoreQuota(true)}
+              className="w-full py-4 px-6 rounded-2xl text-xs font-black text-white bg-slate-900 hover:bg-slate-800 transition-all uppercase tracking-widest"
+             >
+              Continuar no Modo Offline
+             </button>
+             <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 px-6 rounded-2xl text-xs font-black text-slate-400 border border-slate-100 hover:bg-slate-50 transition-all uppercase tracking-widest"
+             >
+              Tentar Reconectar
+             </button>
+             <button 
+              onClick={handleLogout}
+              className="w-full py-4 px-6 rounded-2xl text-[9px] font-black text-slate-300 hover:text-slate-500 transition-all uppercase tracking-widest"
+             >
+              Sair
+             </button>
           </div>
         </div>
-      );
-    }
+      </div>
+    );
+  }
 
+  const renderModule = () => {
     // Restringe acesso baseado no papel
     if (userRole === 'portaria') {
        return <PortariaPanel 

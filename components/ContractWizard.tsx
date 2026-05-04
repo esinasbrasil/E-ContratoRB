@@ -98,6 +98,20 @@ const attachmentTypes = [
   'Relatório Serasa'
 ];
 
+const DEFAULT_SCHEDULE_STEPS = [
+  { name: 'Definição de Escopo', days: 50 },
+  { name: 'Estimativa + CC', days: 5 },
+  { name: 'Abertura da Solicitação', days: 2 },
+  { name: 'Validação Fornecedores Homol.', days: 15 },
+  { name: 'Busca Novos Fornecedores', days: 0 },
+  { name: 'Equalização e Orçamentos', days: 5 },
+  { name: 'Análise de Propostas', days: 5 },
+  { name: 'Aprovação do Pedido', days: 1 },
+  { name: 'Checklist + Assinatura', days: 2 },
+  { name: 'Doc. Fornecedor (Paralelo)', days: 6 },
+  { name: 'Liberação para Execução', days: 1 },
+];
+
 const ContractWizard: React.FC<ContractWizardProps> = ({ 
   suppliers, 
   projects, 
@@ -140,6 +154,7 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
     startDate: '',
     endDate: '',
     scheduleSteps: '',
+    scheduleStepsStructured: [...DEFAULT_SCHEDULE_STEPS],
     value: 0,
     paymentTerms: '',
     billingSchedule: '',
@@ -183,12 +198,31 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
   });
 
   useEffect(() => {
-    if (initialData) setFormData(initialData);
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        scheduleStepsStructured: initialData.scheduleStepsStructured || [...DEFAULT_SCHEDULE_STEPS]
+      });
+    }
   }, [initialData]);
 
   const handleNext = () => currentStep < steps.length - 1 && setCurrentStep(currentStep + 1);
   const handleBack = () => currentStep > 0 && setCurrentStep(currentStep - 1);
   const handleChange = (field: keyof ContractRequestData, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  const handleScheduleChange = (index: number, days: number) => {
+    const newStructured = [...(formData.scheduleStepsStructured || DEFAULT_SCHEDULE_STEPS)];
+    newStructured[index] = { ...newStructured[index], days };
+    
+    // Também atualiza a string de resumo para o PDF legado se necessário
+    const summary = newStructured.map(s => `${s.name}: ${s.days} dias`).join('\n');
+    
+    setFormData(prev => ({
+      ...prev,
+      scheduleStepsStructured: newStructured,
+      scheduleSteps: summary
+    }));
+  };
 
   const handleProjectSelection = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -494,6 +528,46 @@ const ContractWizard: React.FC<ContractWizardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-6 border-2 border-gray-100 rounded-[2rem]"><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Forma de Pagamento</label><input className="w-full p-3 border rounded-xl shadow-sm" value={formData.paymentTerms} onChange={e => handleChange('paymentTerms', e.target.value)} /></div>
             <div className="p-6 border-2 border-gray-100 rounded-[2rem]"><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Cronograma Faturamento</label><input className="w-full p-3 border rounded-xl shadow-sm" value={formData.billingSchedule} onChange={e => handleChange('billingSchedule', e.target.value)} /></div>
+          </div>
+          <div className="p-8 border-2 border-slate-100 rounded-[3rem] bg-slate-50/30">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2 bg-slate-900 rounded-xl text-white"><Zap size={20}/></div>
+              <div>
+                <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Cronograma / Fluxo de Tempo do Projeto</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">Defina os prazos para cada etapa do processo</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(formData.scheduleStepsStructured || DEFAULT_SCHEDULE_STEPS).map((step, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-3xl shadow-sm transition-all hover:shadow-md">
+                   <div className="flex items-center gap-3">
+                     <span className="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-400 text-[10px] font-black rounded-lg">
+                       {idx + 1}
+                     </span>
+                     <span className="text-xs font-black text-slate-700">{step.name}</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <input 
+                       type="number" 
+                       className="w-20 p-2 border border-slate-200 rounded-xl text-center text-sm font-black text-primary-600 focus:ring-2 focus:ring-primary-500" 
+                       value={step.days}
+                       onChange={(e) => handleScheduleChange(idx, parseInt(e.target.value) || 0)}
+                     />
+                     <span className="text-[8px] font-black text-slate-300 uppercase">Dias</span>
+                   </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 flex flex-col items-center">
+              <div className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tempo Total Estimado:</span>
+                <span className="text-lg font-black text-primary-600">
+                  {(formData.scheduleStepsStructured || DEFAULT_SCHEDULE_STEPS).reduce((acc, curr) => acc + curr.days, 0)} DIAS
+                </span>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 border-2 border-gray-100 rounded-[2rem] bg-white shadow-sm">

@@ -103,6 +103,11 @@ export interface SafetyClassificationResults {
   complexity: 'baixa' | 'media' | 'alta';
 }
 
+export interface ContractScheduleStep {
+  name: string;
+  days: number;
+}
+
 export interface ContractRequestData {
   supplierId: string;
   projectId: string;
@@ -137,6 +142,7 @@ export interface ContractRequestData {
   startDate: string;
   endDate: string;
   scheduleSteps: string;
+  scheduleStepsStructured?: ContractScheduleStep[];
   value: number;
   paymentTerms: string;
   billingSchedule?: string;
@@ -190,6 +196,7 @@ export interface ContractRequestData {
   expiryNRs?: string;
 
   safetyClassification?: SafetyClassificationResults;
+  createdAt?: string;
 
   attachments: ContractAttachment[];
 }

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { auth } from '../firebase';
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
-import { Loader2, AlertCircle, ShieldCheck, Globe, Settings, ArrowRight, Mail, Lock } from 'lucide-react';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { Loader2, AlertCircle, ShieldCheck, Globe, Settings, ArrowRight, Mail, Lock, Info } from 'lucide-react';
 import Logo from './Logo';
 
 interface LoginPageProps {
@@ -14,7 +14,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
   const [loading, setLoading] = useState(false);
   const [login, setLogin] = useState('fecampos120@gmail.com');
   const [password, setPassword] = useState('@adm2026');
-  const [error, setError] = useState<{message: string, isProvider: boolean} | null>(null);
+  const [error, setError] = useState<{message: string, isProvider: boolean, type?: 'info' | 'error' | 'success'} | null>(null);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -24,10 +24,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
       await signInWithPopup(auth, provider);
     } catch (err: any) {
       console.error("Erro Firebase Auth:", err);
-      setError({
-        message: "Erro ao conectar com o Google. Verifique se o login com Google está ativado no Firebase Console.",
-        isProvider: false
-      });
+      let message = "Erro ao conectar com o Google. Verifique se o login com Google está ativado no Firebase Console.";
+      if (err.message?.includes('api-key-not-valid')) {
+        message = "Erro de Configuração: A chave de API do Firebase é inválida. Use o 'Modo Offline' para acessar seus dados locais.";
+      }
+      setError({ message, isProvider: false, type: 'error' });
       setLoading(false);
     }
   };
@@ -52,13 +53,30 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
     } catch (err: any) {
       console.error("Erro Firebase Auth Email:", err);
       let message = "Erro ao entrar. Verifique suas credenciais.";
-      if (err.code === 'auth/operation-not-allowed') {
+      
+      if (err.message?.includes('api-key-not-valid')) {
+        message = "Erro de Configuração: A chave de API do Firebase é inválida. Use o 'Modo Offline' para acessar seus dados locais.";
+      } else if (err.code === 'auth/operation-not-allowed') {
         message = "O login por e-mail/senha não está ativado no Firebase Console. Vá em Authentication > Sign-in method e ative 'E-mail/senha'.";
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        message = "E-mail ou senha incorretos. Certifique-se de que o usuário foi criado no Firebase Console.";
+        message = "E-mail ou senha incorretos. Caso tenha esquecido, use o botão 'Recuperar Senha'. Certifique-se também de que o usuário existe no Firebase.";
       }
-      setError({ message, isProvider: false });
+      
+      setError({ message, isProvider: false, type: 'error' });
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!login || !login.includes('@')) {
+      setError({ message: "Insira um e-mail válido para recuperar a senha.", isProvider: false, type: 'info' });
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, login);
+      setError({ message: "Link de recuperação enviado para " + login, isProvider: false, type: 'success' });
+    } catch (err: any) {
+      setError({ message: "Erro ao enviar e-mail: " + err.message, isProvider: false, type: 'error' });
     }
   };
 
@@ -78,11 +96,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
           <h1 className="text-xl font-bold text-slate-400 mb-8 uppercase tracking-widest opacity-50">Autenticação Sistema</h1>
 
           {error && (
-            <div className="mb-8 p-5 rounded-3xl bg-amber-50 border border-amber-100 text-left animate-in fade-in slide-in-from-top-2">
-              <div className="flex gap-3 text-amber-800">
-                <AlertCircle className="shrink-0" size={20} />
+            <div className={`mb-8 p-5 rounded-3xl border animate-in fade-in slide-in-from-top-2 text-left ${
+              error.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 
+              error.type === 'info' ? 'bg-blue-50 border-blue-100 text-blue-800' :
+              'bg-amber-50 border-amber-100 text-amber-800'
+            }`}>
+              <div className="flex gap-3">
+                {error.type === 'success' ? <ShieldCheck size={20}/> : 
+                 error.type === 'info' ? <Info size={20}/> : 
+                 <AlertCircle size={20} />}
                 <div>
-                  <p className="text-sm font-bold">Ação Necessária</p>
+                  <p className="text-sm font-bold">
+                    {error.type === 'success' ? 'Sucesso' : error.type === 'info' ? 'Informação' : 'Ação Necessária'}
+                  </p>
                   <p className="text-xs leading-relaxed mt-1">{error.message}</p>
                 </div>
               </div>
@@ -118,6 +144,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
               className="w-full py-4 px-6 rounded-2xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : "Entrar com E-mail"}
+            </button>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="w-full text-center text-[10px] font-black text-slate-300 uppercase tracking-widest hover:text-emerald-600 transition-colors py-2"
+            >
+              Esqueci minha senha
             </button>
           </form>
 
