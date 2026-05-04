@@ -256,8 +256,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   const drawHeader = () => {
     if (settings?.logoBase64) {
       try {
-        // Logo no canto superior direito
-        doc.addImage(settings.logoBase64, 'PNG', pageWidth - margin - 25, 10, 25, 25, undefined, 'FAST');
+        // Logo alinhado à esquerda
+        doc.addImage(settings.logoBase64, 'PNG', margin, 10, 25, 25, undefined, 'FAST');
       } catch (e) {
         console.warn("Logo error:", e);
       }
@@ -265,22 +265,23 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-    // Se tiver logo, posiciona o título abaixo dela
-    const titleY = settings?.logoBase64 ? 20 : 15;
+    
+    // Título e informações alinhados à direita
+    const titleY = 18;
     doc.text(companyName.toUpperCase(), pageWidth - margin, titleY, { align: "right" });
     
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Pedido: ${safeText(data.orderNumber)}`, pageWidth - margin, titleY + 5, { align: "right" });
+    doc.text(`Pedido: ${safeText(data.orderNumber)}`, pageWidth - margin, titleY + 6, { align: "right" });
     
     const docDate = data.createdAt ? new Date(data.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(`${documentTitle} • Data: ${docDate}`, pageWidth - margin, titleY + 9, { align: "right" });
+    doc.text(`${documentTitle} • Data: ${docDate}`, pageWidth - margin, titleY + 10, { align: "right" });
     
     doc.setFillColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
-    doc.rect(margin, 35, contentWidth, 1.2, 'F');
-    currentY = 45;
+    doc.rect(margin, 38, contentWidth, 1.2, 'F');
+    currentY = 48;
   };
 
   const drawFooter = () => {
