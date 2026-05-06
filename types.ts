@@ -242,6 +242,21 @@ export interface ProcedureSettings {
   steps: Omit<ProcessStep, 'id'>[];
 }
 
+export interface FollowUpProject {
+  id: string;
+  unit: string;
+  projectNumber: string; // Maps to "INVESTIMENTO" in UI
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface FollowUpHistory {
+  id: string;
+  projectNumber: string;
+  date: string;
+  comment: string;
+}
+
 export enum AppTab {
   DASHBOARD = 'Dashboard',
   SUPPLIERS = 'Fornecedores',

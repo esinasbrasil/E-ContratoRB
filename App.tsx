@@ -17,13 +17,14 @@ import ServiceTypeManager from './components/ServiceTypeManager';
 import PortariaPanel from './components/PortariaPanel';
 import SupplierPortal from './components/SupplierPortal';
 import AccessManagement from './components/AccessManagement';
+import ProjectFollowUp from './components/ProjectFollowUp';
 import LoginPage from './components/LoginPage';
 import Logo from './components/Logo';
-import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, AppTab, UserRole } from './types';
+import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, FollowUpProject, FollowUpHistory, AppTab, UserRole } from './types';
 import { generateId, cleanObject } from './utils';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously, signInWithEmailAndPassword } from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -113,7 +114,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<UserRole>('admin');
   const [authChecking, setAuthChecking] = useState(true);
-  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal'>('home');
+  const [currentModule, setCurrentModule] = useState<'home' | 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal' | 'followup_admin' | 'followup_consult'>('home');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
@@ -126,6 +127,8 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [processos, setProcessos] = useState<Procedure[]>([]);
+  const [followupProjects, setFollowupProjects] = useState<FollowUpProject[]>([]);
+  const [followupHistory, setFollowupHistory] = useState<FollowUpHistory[]>([]);
   const [procedureSettings, setProcedureSettings] = useState<any>(null);
   
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
@@ -175,7 +178,9 @@ const App: React.FC = () => {
     if (units.length > 0) localStorage.setItem('rb_units_v1', JSON.stringify(units));
     if (serviceCategories.length > 0) localStorage.setItem('rb_service_categories_v1', JSON.stringify(serviceCategories));
     if (processos.length > 0) localStorage.setItem('rb_processos_v1', JSON.stringify(processos));
-  }, [contracts, suppliers, projects, units, serviceCategories, processos]);
+    if (followupProjects.length > 0) localStorage.setItem('rb_followup_projects_v1', JSON.stringify(followupProjects));
+    if (followupHistory.length > 0) localStorage.setItem('rb_followup_history_v1', JSON.stringify(followupHistory));
+  }, [contracts, suppliers, projects, units, serviceCategories, processos, followupProjects, followupHistory]);
 
   useEffect(() => {
     if (companySettings) {
@@ -201,6 +206,8 @@ const App: React.FC = () => {
     loadBackup('rb_units_v1', setUnits);
     loadBackup('rb_service_categories_v1', setServiceCategories);
     loadBackup('rb_processos_v1', setProcessos);
+    loadBackup('rb_followup_projects_v1', setFollowupProjects);
+    loadBackup('rb_followup_history_v1', setFollowupHistory);
     
     const settings = localStorage.getItem('rb_settings_v1');
     if (settings) {
@@ -214,10 +221,35 @@ const App: React.FC = () => {
   // --- FIM DA PERSISTÊNCIA LOCAL ---
 
   useEffect(() => {
+    // Tenta login automático se não houver sessão ativa
+    const autoLogin = async () => {
+      if (!session && !authChecking) {
+        try {
+          await signInWithEmailAndPassword(auth, 'fecampos120@gmail.com', '@adm2026');
+        } catch (error) {
+          console.warn("Auto-login falhou, tentando modo offline como fallback", error);
+          // Fallback para modo offline se o login falhar (ex: sem internet ou credenciais mudaram)
+          setSession({ 
+            user: { 
+              uid: 'offline_user', 
+              email: 'fecampos120@gmail.com', 
+              displayName: 'Administrador (Offline)' 
+            },
+            isOffline: true
+          });
+          setUserRole('admin');
+        }
+      }
+    };
+
+    if (!authChecking) autoLogin();
+  }, [authChecking]);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         // Define role baseado no e-mail do admin
-        const role = 'admin'; // Por padrão, usuários logados via Firebase são admin se forem da equipe
+        const role = 'admin'; 
         setUserRole(role);
         setSession({ 
           user: { 
@@ -227,11 +259,7 @@ const App: React.FC = () => {
           } 
         });
       } else {
-        // Mantém a sessão se for um bypass manual (portaria/fornecedor)
-        if (!session?.isCustom) {
-          setSession(null);
-          setUserRole('admin');
-        }
+        // Não resetamos para null imediatamente para evitar flash da tela de login se o auto-login estiver rodando
       }
       setAuthChecking(false);
     });
@@ -253,7 +281,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!session || (quotaExceeded && !ignoreQuota)) return;
+    if (!session || (quotaExceeded && !ignoreQuota) || session.isOffline) return;
 
     const unsubscribers: (() => void)[] = [];
 
@@ -281,6 +309,8 @@ const App: React.FC = () => {
     setupListener('service_categories', setServiceCategories);
     setupListener('contracts', setContracts, 'createdAt', 'desc');
     setupListener('processos', setProcessos, 'createdAt', 'desc');
+    setupListener('followup_projects', setFollowupProjects, 'projectNumber', 'asc');
+    setupListener('followup_history', setFollowupHistory, 'date', 'desc');
     setupListener('procedure_settings', (data) => setProcedureSettings(data[0] || null));
 
     // Settings is a single doc
@@ -304,6 +334,29 @@ const App: React.FC = () => {
   };
 
   const saveAction = async (table: string, data: any): Promise<boolean> => {
+    if (session?.isOffline) {
+       console.log("Modo Offline: Atualizando estado local para", table);
+       const updateLocalState = (prev: any[], newData: any) => {
+         const exists = prev.find(item => item.id === newData.id);
+         if (exists) return prev.map(item => item.id === newData.id ? newData : item);
+         return [...prev, newData];
+       };
+
+       const dataWithId = { ...data, id: data.id || generateId() };
+
+       if (table === 'suppliers') setSuppliers(prev => updateLocalState(prev, dataWithId));
+       if (table === 'projects') setProjects(prev => updateLocalState(prev, dataWithId));
+       if (table === 'units') setUnits(prev => updateLocalState(prev, dataWithId));
+       if (table === 'service_categories') setServiceCategories(prev => updateLocalState(prev, dataWithId));
+       if (table === 'contracts') setContracts(prev => updateLocalState(prev, dataWithId));
+       if (table === 'processos') setProcessos(prev => updateLocalState(prev, dataWithId));
+       if (table === 'followup_projects') setFollowupProjects(prev => updateLocalState(prev, dataWithId));
+       if (table === 'followup_history') setFollowupHistory(prev => updateLocalState(prev, dataWithId));
+       if (table === 'company_settings') setCompanySettings(dataWithId);
+       if (table === 'procedure_settings') setProcedureSettings(dataWithId);
+
+       return true;
+    }
     setLoading(true);
     console.log(`Iniciando salvamento em ${table}:`, data);
     try {
@@ -388,6 +441,11 @@ const App: React.FC = () => {
   };
 
   const loadContractWithAttachments = async (contract: Contract) => {
+    if (session?.isOffline) {
+      setEditingContract(contract);
+      setContractWizardSupplierId(contract.supplierId);
+      return;
+    }
     setLoading(true);
     try {
       // Buscar os arquivos da subcoleção
@@ -423,6 +481,18 @@ const App: React.FC = () => {
 
   const deleteAction = async (table: string, id: string) => {
     if (!window.confirm("Deseja realmente excluir este registro?")) return;
+    if (session?.isOffline) {
+      console.log("Modo Offline: Removendo do estado local em", table);
+      if (table === 'suppliers') setSuppliers(prev => prev.filter(i => i.id !== id));
+      if (table === 'projects') setProjects(prev => prev.filter(i => i.id !== id));
+      if (table === 'units') setUnits(prev => prev.filter(i => i.id !== id));
+      if (table === 'service_categories') setServiceCategories(prev => prev.filter(i => i.id !== id));
+      if (table === 'contracts') setContracts(prev => prev.filter(i => i.id !== id));
+      if (table === 'processos') setProcessos(prev => prev.filter(i => i.id !== id));
+      if (table === 'followup_projects') setFollowupProjects(prev => prev.filter(i => i.id !== id));
+      if (table === 'followup_history') setFollowupHistory(prev => prev.filter(i => i.id !== id));
+      return;
+    }
     setLoading(true);
     try {
       await deleteDoc(doc(db, table, id));
@@ -434,33 +504,16 @@ const App: React.FC = () => {
     }
   };
 
-  if (authChecking) {
+  if (authChecking || (!session && !offlineMode)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <Loader2 className="text-emerald-500 animate-spin" size={48} />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 gap-4">
+        <Logo className="w-16 h-16 animate-pulse" />
+        <div className="flex items-center gap-3 text-emerald-500 font-bold text-xs uppercase tracking-widest">
+          <Loader2 className="animate-spin" size={16} />
+          Iniciando Sistema...
+        </div>
       </div>
     );
-  }
-
-  if (!session) {
-    return <LoginPage 
-      onDemoLogin={() => {
-        try {
-          signInAnonymously(auth).catch(e => console.warn("Firebase Auth falhou, entrando em modo offline puramente local", e));
-        } catch (e) {}
-        setSession({ 
-          user: { 
-            uid: 'offline_user', 
-            email: 'offline@portal.rb', 
-            displayName: 'Usuário Offline' 
-          },
-          isOffline: true
-        });
-        setUserRole('admin');
-        setOfflineMode(true);
-      }} 
-      onCustomLogin={handleCustomLogin}
-    />;
   }
 
   if (quotaExceeded && !ignoreQuota) {
@@ -560,6 +613,23 @@ const App: React.FC = () => {
             suppliers={suppliers}
             onBack={() => setCurrentModule('home')}
             onUpdateSupplier={s => saveAction('suppliers', s)}
+          />
+        )}
+        {(currentModule === 'followup_admin' || currentModule === 'followup_consult') && (
+          <ProjectFollowUp 
+            projects={followupProjects} 
+            history={followupHistory}
+            userRole={userRole}
+            mode={currentModule === 'followup_admin' ? 'admin' : 'consult'}
+            onAddProjects={async (newBatch) => {
+              for (const p of newBatch) {
+                await saveAction('followup_projects', p);
+              }
+            }}
+            onAddHistory={async (h) => {
+              await saveAction('followup_history', h);
+            }}
+            onBack={() => setCurrentModule('home')}
           />
         )}
         {currentModule === 'contracts' && (

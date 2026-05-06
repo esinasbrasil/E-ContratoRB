@@ -147,9 +147,42 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "cpf", "status", "startDate"]
+    },
+    "FollowUpProject": {
+      "title": "FollowUpProject",
+      "description": "A project for follow-up tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "unit": { "type": "string" },
+        "projectNumber": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["unit", "projectNumber"]
+    },
+    "FollowUpHistory": {
+      "title": "FollowUpHistory",
+      "description": "Historical comment for a follow-up project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "comment": { "type": "string" }
+      },
+      "required": ["projectNumber", "date", "comment"]
     }
   },
   "firestore": {
+    "/followup_projects/{id}": {
+      "schema": "FollowUpProject",
+      "description": "Projects for follow-up tracking"
+    },
+    "/followup_history/{id}": {
+      "schema": "FollowUpHistory",
+      "description": "Comments and history for follow-up projects"
+    },
     "/visits/{visitId}": {
       "schema": "Visit",
       "description": "Visits and access authorizations collection"

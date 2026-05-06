@@ -1,13 +1,13 @@
 
 // v2.4 - Final Label Alignment with Logo
 import React from 'react';
-import { FileText, HardHat, ClipboardCheck, ArrowRight, History, ScanFace, Globe } from 'lucide-react';
+import { FileText, HardHat, ClipboardCheck, ArrowRight, History, ScanFace, Globe, FileClock, Search } from 'lucide-react';
 import Logo from './Logo';
 
 import { UserRole } from '../types';
 
 interface LandingPageProps {
-  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal') => void;
+  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal' | 'followup_admin' | 'followup_consult') => void;
   userRole?: UserRole;
 }
 
@@ -100,6 +100,42 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule, userRole = 'a
             </div>
           </div>
         )}
+
+        {/* Follow-up de Projetos (Admin) */}
+        {userRole === 'admin' && (
+          <div 
+            onClick={() => onSelectModule('followup_admin')}
+            className="bg-white rounded-[3rem] shadow-2xl p-10 cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-emerald-900/10 border border-slate-100 group flex flex-col items-start"
+          >
+            <div className="w-20 h-20 bg-emerald-50 rounded-[2rem] flex items-center justify-center mb-8 group-hover:bg-emerald-600 transition-all duration-300">
+              <FileClock size={36} className="text-emerald-600 group-hover:text-white" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Gestão de Projetos</h2>
+            <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight flex-1">
+              Painel administrativo para importação de planilhas e atualização de status de investimentos.
+            </p>
+            <div className="mt-auto flex items-center text-emerald-600 font-black text-xs uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform">
+              Acessar Painel <ArrowRight size={16} className="ml-2" strokeWidth={3} />
+            </div>
+          </div>
+        )}
+
+        {/* Consulta de Investimentos (Todos) */}
+        <div 
+          onClick={() => onSelectModule('followup_consult')}
+          className="bg-white rounded-[3rem] shadow-2xl p-10 cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-slate-900/10 border border-slate-100 group flex flex-col items-start"
+        >
+          <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-8 group-hover:bg-slate-900 transition-all duration-300">
+            <Search size={36} className="text-slate-900 group-hover:text-white" strokeWidth={1.5} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Consulta de Investimentos</h2>
+          <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight flex-1">
+            Pesquise por unidade ou número do projeto para visualizar o histórico completo de atualizações.
+          </p>
+          <div className="mt-auto flex items-center text-slate-900 font-black text-xs uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform">
+            Consultar Histórico <ArrowRight size={16} className="ml-2" strokeWidth={3} />
+          </div>
+        </div>
 
         {/* Portaria */}
         {(userRole === 'admin' || userRole === 'portaria') && (
