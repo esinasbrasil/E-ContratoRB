@@ -24,7 +24,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
       await signInWithPopup(auth, provider);
     } catch (err: any) {
       console.error("Erro Firebase Auth:", err);
-      let message = "Erro ao conectar com o Google. Verifique se o login com Google está ativado no Firebase Console.";
+      
+      let message = "Erro ao conectar com o Google.\n\n" +
+                    "⚠️ É necessário ativar o 'Google' em seu painel do Firebase Console:\n" +
+                    "1. Acesse: https://console.firebase.google.com/project/gen-lang-client-0593671893/authentication/providers\n" +
+                    "2. Clique em 'Adicionar parceiro' ou 'Habilitar provedor' e selecione 'Google'.\n" +
+                    "3. Configure os dados e salve.\n\n" +
+                    "💡 DICA: Você também pode usar o botão 'Modo Offline' abaixo para entrar e usar o sistema imediatamente com o banco de dados local do seu navegador!";
+                    
       if (err.message?.includes('api-key-not-valid')) {
         message = "Erro de Configuração: A chave de API do Firebase é inválida. Use o 'Modo Offline' para acessar seus dados locais.";
       }
