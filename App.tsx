@@ -19,12 +19,13 @@ import SupplierPortal from './components/SupplierPortal';
 import AccessManagement from './components/AccessManagement';
 import ProjectFollowUp from './components/ProjectFollowUp';
 import LoginPage from './components/LoginPage';
+import VendorList from './components/VendorList';
 import Logo from './components/Logo';
 import { Supplier, SupplierStatus, Project, ServiceCategory, Unit, Contract, ContractRequestData, CompanySettings, Procedure, FollowUpProject, FollowUpHistory, AppTab, UserRole } from './types';
 import { generateId, cleanObject } from './utils';
 import { analyzeSupplierRisk } from './services/geminiService';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut, signInAnonymously, signInWithEmailAndPassword } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -226,18 +227,37 @@ const App: React.FC = () => {
       if (!session && !authChecking) {
         try {
           await signInWithEmailAndPassword(auth, 'fecampos120@gmail.com', '@adm2026');
-        } catch (error) {
-          console.warn("Auto-login falhou, tentando modo offline como fallback", error);
-          // Fallback para modo offline se o login falhar (ex: sem internet ou credenciais mudaram)
-          setSession({ 
-            user: { 
-              uid: 'offline_user', 
-              email: 'fecampos120@gmail.com', 
-              displayName: 'Administrador (Offline)' 
-            },
-            isOffline: true
-          });
-          setUserRole('admin');
+          console.log("Auto-login com e-mail realizado com sucesso.");
+        } catch (error: any) {
+          console.warn("Auto-login com e-mail falhou. Tentando registrar se não existir...", error);
+          const errorCode = error?.code || '';
+          const errorMessage = error?.message || '';
+          
+          // Se for erro de usuário não encontrado ou credencial inválida, tentamos criar o usuário padrão
+          if (
+            errorCode === 'auth/user-not-found' || 
+            errorCode === 'auth/invalid-credential' || 
+            errorMessage.includes('user-not-found') || 
+            errorMessage.includes('invalid-credential')
+          ) {
+            try {
+              await createUserWithEmailAndPassword(auth, 'fecampos120@gmail.com', '@adm2026');
+              console.log("Usuário padrão registrado e logado com sucesso!");
+            } catch (createErr: any) {
+              const createErrorCode = createErr?.code || '';
+              if (createErrorCode === 'auth/email-already-in-use') {
+                console.log("O usuário já existe, mas a senha padrão não confere ou o login por e-mail/senha está configurado diferente no console. Aguardando login manual.");
+              } else {
+                console.warn("Falha ao registrar usuário padrão:", createErr);
+              }
+            }
+          } else {
+            console.warn("Erro de autenticação não tratado no auto-login:", error);
+          }
+          
+          // NOTA: Se o auto-login falhar, nós NÃO forçamos o modo offline silenciosamente.
+          // Isso garante que o usuário seja levado à página de login (LoginPage) onde poderá optar 
+          // por entrar via Google Login (conexão real), digitar as credenciais corretas ou escolher o 'Modo Offline' de forma consciente.
         }
       }
     };
@@ -266,19 +286,150 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleCustomLogin = (role: 'portaria' | 'fornecedor') => {
-    setSession({
-      user: {
-        uid: `custom_${role}`,
-        email: `${role}@portal.rb`,
-        displayName: role === 'portaria' ? 'Equipe Portaria' : 'Portal Fornecedor'
-      },
-      isCustom: true
-    });
-    setUserRole(role);
-    // Redireciona automaticamente para o módulo correto
-    setCurrentModule(role === 'portaria' ? 'portaria' : 'portal');
+  const handleCustomLogin = async (role: 'portaria' | 'fornecedor') => {
+    const email = `${role}@portal.rb`;
+    const password = `@${role}123`;
+    setLoading(true);
+    try {
+      try {
+        console.log(`Tentando autenticação real do Firebase para ${role} (${email})...`);
+        await signInWithEmailAndPassword(auth, email, password);
+        console.log(`Login custom com e-mail realizado com sucesso para ${role}`);
+      } catch (err: any) {
+        const errCode = err?.code || '';
+        const errMsg = err?.message || '';
+        if (
+          errCode === 'auth/user-not-found' || 
+          errCode === 'auth/invalid-credential' || 
+          errMsg.includes('user-not-found') || 
+          errMsg.includes('invalid-credential')
+        ) {
+          try {
+            console.log(`Conta ${email} não encontrada ou senha padrão desatualizada. Criando conta automática...`);
+            await createUserWithEmailAndPassword(auth, email, password);
+            console.log(`Conta ${email} registrada e logada com sucesso!`);
+          } catch (createErr: any) {
+            console.warn(`Tentativa de criação automática da conta ${email} falhou:`, createErr);
+            // Se já existir ou falhar por outro motivo, tenta login anônimo como último esforço
+            try {
+              await signInAnonymously(auth);
+            } catch (anonErr) {
+              console.warn("Login anônimo de fallback também falhou. Entrando em modo simulado.");
+            }
+          }
+        } else {
+          console.error(`Erro inesperado de login para ${role}:`, err);
+          throw err;
+        }
+      }
+
+      setSession({
+        user: {
+          uid: auth.currentUser?.uid || `custom_${role}`,
+          email: email,
+          displayName: role === 'portaria' ? 'Equipe Portaria' : 'Portal Fornecedor'
+        },
+        isCustom: true
+      });
+      setUserRole(role);
+      setCurrentModule(role === 'portaria' ? 'portaria' : 'portal');
+    } catch (error) {
+      console.error("Falha ao autenticar para modo custom:", error);
+      // Fallback local se todas as tentativas no Firebase falharem
+      setSession({
+        user: {
+          uid: `custom_${role}`,
+          email: email,
+          displayName: role === 'portaria' ? 'Equipe Portaria' : 'Portal Fornecedor'
+        },
+        isCustom: true
+      });
+      setUserRole(role);
+      setCurrentModule(role === 'portaria' ? 'portaria' : 'portal');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // --- AUTOMATIC FRONTEND TO BACKEND SYNCHRONIZATION ---
+  useEffect(() => {
+    if (!session || session.isOffline || (quotaExceeded && !ignoreQuota)) return;
+
+    const syncLocalDataToFirebase = async () => {
+      console.log("Iniciando controle e sincronização de dados locais para o Firebase...");
+      setLoading(true);
+
+      const collectionsToSync = [
+        { key: 'rb_suppliers_v1', table: 'suppliers' },
+        { key: 'rb_projects_v1', table: 'projects' },
+        { key: 'rb_units_v1', table: 'units' },
+        { key: 'rb_service_categories_v1', table: 'service_categories' },
+        { key: 'rb_contracts_v1', table: 'contracts' },
+        { key: 'rb_processos_v1', table: 'processos' },
+        { key: 'rb_followup_projects_v1', table: 'followup_projects' },
+        { key: 'rb_followup_history_v1', table: 'followup_history' }
+      ];
+
+      try {
+        for (const item of collectionsToSync) {
+          const localDataStr = localStorage.getItem(item.key);
+          if (localDataStr) {
+            try {
+              const localItems = JSON.parse(localDataStr);
+              if (Array.isArray(localItems) && localItems.length > 0) {
+                // Obter IDs já existentes no Firestore
+                const firestoreSnapshot = await getDocs(collection(db, item.table));
+                const existingIds = new Set(firestoreSnapshot.docs.map(doc => doc.id));
+
+                for (const localDoc of localItems) {
+                  if (localDoc && localDoc.id && !existingIds.has(localDoc.id)) {
+                    const docId = localDoc.id;
+                    const cleanedData = cleanObject({
+                      ...localDoc,
+                      user_id: session.user?.uid || localDoc.user_id || 'system_synced'
+                    });
+                    
+                    await setDoc(doc(db, item.table, docId), cleanedData);
+                    console.log(`Item local ${item.table}/${docId} sincronizado na nuvem.`);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(`Erro ao sincronizar coleção ${item.table}:`, e);
+            }
+          }
+        }
+
+        // Configurações Globais
+        const localSettingsStr = localStorage.getItem('rb_settings_v1');
+        if (localSettingsStr) {
+          try {
+            const localSettings = JSON.parse(localSettingsStr);
+            if (localSettings && localSettings.companyName) {
+              const settingsDoc = await getDocFromServer(doc(db, 'company_settings', 'global'));
+              if (!settingsDoc.exists()) {
+                const cleanedData = cleanObject({
+                  ...localSettings,
+                  user_id: session.user?.uid || 'system_synced'
+                });
+                await setDoc(doc(db, 'company_settings', 'global'), cleanedData);
+                console.log("Configurações locais sincronizadas na nuvem.");
+              }
+            }
+          } catch (e) {
+            console.warn("Erro ao sincronizar configurações globais:", e);
+          }
+        }
+        console.log("Sincronização concluída com sucesso!");
+      } catch (err: any) {
+        console.error("Falha geral na rotina de sincronização:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    syncLocalDataToFirebase();
+  }, [session, quotaExceeded, ignoreQuota]);
 
   useEffect(() => {
     if (!session || (quotaExceeded && !ignoreQuota) || session.isOffline) return;
@@ -448,13 +599,25 @@ const App: React.FC = () => {
     }
     setLoading(true);
     try {
-      // Buscar os arquivos da subcoleção
-      const attachmentsSnapshot = await getDocs(collection(db, `contracts/${contract.id}/attachments`));
-      const fullAttachments = attachmentsSnapshot.docs.map(d => ({
-        name: d.data().name,
-        type: d.data().type,
-        fileData: d.data().fileData
-      }));
+      // Se os anexos já tiverem dados, use-os. Caso contrário, busque na subcoleção.
+      let fullAttachments = contract.details.attachments || [];
+      const isMissingData = fullAttachments.length > 0 && fullAttachments.some(a => !a.fileData || a.fileData.length < 100);
+
+      if (isMissingData || fullAttachments.length === 0) {
+        try {
+          // Buscar os arquivos da subcoleção
+          const attachmentsSnapshot = await getDocs(collection(db, `contracts/${contract.id}/attachments`));
+          if (!attachmentsSnapshot.empty) {
+            fullAttachments = attachmentsSnapshot.docs.map(d => ({
+              name: d.data().name,
+              type: d.data().type,
+              fileData: d.data().fileData
+            }));
+          }
+        } catch (fetchErr) {
+          console.warn("Aviso ao buscar anexos para edição:", fetchErr);
+        }
+      }
 
       // Injetar os arquivos de volta nos detalhes
       const contractWithFiles = {
@@ -504,7 +667,96 @@ const App: React.FC = () => {
     }
   };
 
-  if (authChecking || (!session && !offlineMode)) {
+  const reloadFromLocalStorage = () => {
+    const loadBackup = (key: string, setter: (data: any) => void) => {
+      const data = localStorage.getItem(key);
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed)) setter(parsed);
+        } catch (e) { console.warn(`Erro ao carregar ${key} do localStorage`, e); }
+      } else {
+        setter([]);
+      }
+    };
+    loadBackup('rb_contracts_v1', setContracts);
+    loadBackup('rb_suppliers_v1', setSuppliers);
+    loadBackup('rb_projects_v1', setProjects);
+    loadBackup('rb_units_v1', setUnits);
+    loadBackup('rb_service_categories_v1', setServiceCategories);
+    loadBackup('rb_processos_v1', setProcessos);
+    loadBackup('rb_followup_projects_v1', setFollowupProjects);
+    loadBackup('rb_followup_history_v1', setFollowupHistory);
+    
+    const settings = localStorage.getItem('rb_settings_v1');
+    if (settings) {
+      try {
+        const parsed = JSON.parse(settings);
+        if (parsed.companyName) setCompanySettings(parsed);
+      } catch (e) {}
+    }
+  };
+
+  const forceSync = async (): Promise<boolean> => {
+    if (!session || session.isOffline) {
+      alert("Você está em Modo Offline. Conecte-se para sincronizar.");
+      return false;
+    }
+    
+    console.log("Forçando sincronização manual para o Firebase...");
+    setLoading(true);
+
+    const collectionsToSync = [
+      { key: 'rb_suppliers_v1', table: 'suppliers' },
+      { key: 'rb_projects_v1', table: 'projects' },
+      { key: 'rb_units_v1', table: 'units' },
+      { key: 'rb_service_categories_v1', table: 'service_categories' },
+      { key: 'rb_contracts_v1', table: 'contracts' },
+      { key: 'rb_processos_v1', table: 'processos' },
+      { key: 'rb_followup_projects_v1', table: 'followup_projects' },
+      { key: 'rb_followup_history_v1', table: 'followup_history' }
+    ];
+
+    try {
+      let syncedCount = 0;
+      for (const item of collectionsToSync) {
+        const localDataStr = localStorage.getItem(item.key);
+        if (localDataStr) {
+          try {
+            const localItems = JSON.parse(localDataStr);
+            if (Array.isArray(localItems) && localItems.length > 0) {
+              const firestoreSnapshot = await getDocs(collection(db, item.table));
+              const existingIds = new Set(firestoreSnapshot.docs.map(doc => doc.id));
+
+              for (const localDoc of localItems) {
+                if (localDoc && localDoc.id && !existingIds.has(localDoc.id)) {
+                  const docId = localDoc.id;
+                  const cleanedData = cleanObject({
+                    ...localDoc,
+                    user_id: session.user?.uid || localDoc.user_id || 'system_synced'
+                  });
+                  
+                  await setDoc(doc(db, item.table, docId), cleanedData);
+                  syncedCount++;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`Erro na sincronização manual da tabela ${item.table}:`, e);
+          }
+        }
+      }
+      console.log(`Sincronização manual concluída. ${syncedCount} itens sincronizados.`);
+      return true;
+    } catch (err) {
+      console.error("Erro na sincronização:", err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authChecking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 gap-4">
         <Logo className="w-16 h-16 animate-pulse" />
@@ -513,6 +765,26 @@ const App: React.FC = () => {
           Iniciando Sistema...
         </div>
       </div>
+    );
+  }
+
+  if (!session && !offlineMode) {
+    return (
+      <LoginPage 
+        onDemoLogin={() => {
+          setOfflineMode(true);
+          setSession({ 
+            user: { 
+              uid: 'offline_user', 
+              email: 'fecampos120@gmail.com', 
+              displayName: 'Administrador (Offline)' 
+            },
+            isOffline: true
+          });
+          setUserRole('admin');
+        }}
+        onCustomLogin={handleCustomLogin}
+      />
     );
   }
 
@@ -579,6 +851,9 @@ const App: React.FC = () => {
             if (mod === 'procedures') {
               setCurrentModule('contracts');
               setActiveTab('procedures');
+            } else if (mod === 'vendor_list') {
+              setCurrentModule('contracts');
+              setActiveTab('vendor_list');
             } else {
               setCurrentModule(mod);
             }
@@ -627,6 +902,9 @@ const App: React.FC = () => {
               }
             }}
             onAddHistory={async (h) => {
+              await saveAction('followup_history', h);
+            }}
+            onUpdateHistory={async (h) => {
               await saveAction('followup_history', h);
             }}
             onBack={() => setCurrentModule('home')}
@@ -699,8 +977,17 @@ const App: React.FC = () => {
                 />
               )}
               {activeTab === 'types' && <ServiceTypeManager services={serviceCategories} onAdd={c => saveAction('service_categories', c)} onDelete={id => deleteAction('service_categories', id)} />}
-              {activeTab === 'settings' && <SettingsManager settings={companySettings} onSave={s => saveAction('company_settings', s)} />}
+              {activeTab === 'settings' && (
+                <SettingsManager 
+                  settings={companySettings} 
+                  onSave={s => saveAction('company_settings', s)} 
+                  onDataImported={reloadFromLocalStorage}
+                  onForceSync={forceSync}
+                  session={session}
+                />
+              )}
               {activeTab === 'access' && <AccessManagement suppliers={suppliers} />}
+              {activeTab === 'vendor_list' && <VendorList />}
             </Layout>
           </>
         )}

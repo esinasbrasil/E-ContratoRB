@@ -62,7 +62,7 @@ const isPDF = (bytes: Uint8Array): boolean => {
   return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;
 };
 
-const createInvitationLetterPDFBlob = async (data: ContractRequestData, settings?: CompanySettings, unit?: Unit): Promise<Blob> => {
+const createInvitationLetterPDFBlob = async (data: ContractRequestData, settings?: CompanySettings, unit?: Unit): Promise<Uint8Array> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -225,10 +225,10 @@ const createInvitationLetterPDFBlob = async (data: ContractRequestData, settings
   doc.text("Departamento de Suprimentos / Segurança do Trabalho", margin, currentY);
   
   drawFooter();
-  return doc.output('blob');
+  return new Uint8Array(doc.output('arraybuffer'));
 };
 
-const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit): Promise<Blob> => {
+const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit): Promise<Uint8Array> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -457,7 +457,8 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(6, 78, 59);
   doc.text("VALOR TOTAL ESTIMADO", margin + 7, currentY + 8);
   doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-  doc.text(`R$ ${data.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 7, currentY + 16);
+  const val = Number(data.value) || 0;
+  doc.text(`R$ ${val.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, margin + 7, currentY + 16);
   doc.text("Vigência:", margin + colW + 10, currentY + 8);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
   doc.text(`${safeText(data.startDate)} até ${safeText(data.endDate)}`, margin + colW + 10, currentY + 16);
@@ -607,7 +608,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
       currentY += 6;
     });
     
-    const totalDays = data.scheduleStepsStructured.reduce((acc, curr) => acc + curr.days, 0);
+    const totalDays = (data.scheduleStepsStructured || []).reduce((acc, curr) => acc + (Number(curr.days) || 0), 0);
     currentY += 4;
     doc.setFont("helvetica", "bold"); doc.setFontSize(9);
     doc.setFillColor(245, 245, 245);
@@ -626,7 +627,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Documentos Contratuais e Cadastrais:", margin, currentY);
   currentY += 8;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-  data.attachments.forEach(att => {
+  (data.attachments || []).forEach(att => {
     if (checkPageOverflow(6)) currentY += 6;
     doc.text(`  • ${safeText(att.type)}: ${safeText(att.name)}`, margin, currentY);
     currentY += 6;
@@ -652,7 +653,7 @@ const createChecklistPDFBlob = async (data: ContractRequestData, supplier?: Supp
   doc.text("Responsável Técnico / Gestor", pageWidth / 2, currentY + 5, { align: "center" });
 
   drawFooter();
-  return doc.output('blob');
+  return new Uint8Array(doc.output('arraybuffer'));
 };
 
 const isImage = (bytes: Uint8Array): boolean => {
@@ -667,29 +668,38 @@ const isImage = (bytes: Uint8Array): boolean => {
 export const mergeAndSavePDF = async (data: ContractRequestData, supplier?: Supplier, settings?: CompanySettings, unit?: Unit) => {
   try {
     const isInvitation = data.supplierId === 'convite-rfp';
-    const mainPdfBlob = isInvitation 
+    const mainPdfBytes = isInvitation 
       ? await createInvitationLetterPDFBlob(data, settings, unit)
       : await createChecklistPDFBlob(data, supplier, settings, unit);
     
-    const mainPdfArrayBuffer = await mainPdfBlob.arrayBuffer();
     const mergedPdf = await PDFDocument.create();
-    const mainPdfDoc = await PDFDocument.load(mainPdfArrayBuffer);
+    const mainPdfDoc = await PDFDocument.load(mainPdfBytes);
     const mainPages = await mergedPdf.copyPages(mainPdfDoc, mainPdfDoc.getPageIndices());
     mainPages.forEach((page) => mergedPdf.addPage(page));
 
     if (data.attachments && data.attachments.length > 0) {
+       console.log(`Mesclando ${data.attachments.length} anexos...`);
        for (const attachment of data.attachments) {
            try {
+               if (!attachment.fileData) {
+                 console.warn(`Anexo sem dados: ${attachment.name}`);
+                 continue;
+               }
                const attachmentBytes = base64ToUint8Array(attachment.fileData);
-               if (attachmentBytes.length === 0) continue;
+               if (attachmentBytes.length === 0) {
+                 console.warn(`Falha na conversão base64: ${attachment.name}`);
+                 continue;
+               }
 
                if (isPDF(attachmentBytes)) {
+                 console.log(`Carregando PDF: ${attachment.name}`);
                  const attachmentPdf = await PDFDocument.load(attachmentBytes, { ignoreEncryption: true });
                  const copiedPages = await mergedPdf.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
                  for (const page of copiedPages) {
                    mergedPdf.addPage(page);
                  }
                } else if (isImage(attachmentBytes)) {
+                 console.log(`Carregando Imagem: ${attachment.name}`);
                  // Support images by embedding them in a new PDF page
                  let image;
                  if (attachmentBytes[0] === 0x89) {

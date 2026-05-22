@@ -1,15 +1,33 @@
 import React, { useState, useRef } from 'react';
 import { CompanySettings } from '../types';
-import { Save, Upload, Trash2, LayoutTemplate, FileText, AlertTriangle, Database, Wand2 } from 'lucide-react';
+import { 
+  Save, 
+  Upload, 
+  Trash2, 
+  LayoutTemplate, 
+  FileText, 
+  AlertTriangle, 
+  Database, 
+  Wand2, 
+  Download, 
+  RefreshCw, 
+  CheckCircle, 
+  UploadCloud 
+} from 'lucide-react';
 
 interface SettingsManagerProps {
   settings: CompanySettings;
   onSave: (settings: CompanySettings) => void;
+  onDataImported?: () => void;
+  onForceSync?: () => Promise<boolean>;
+  session?: any;
 }
 
-const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave }) => {
+const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave, onDataImported, onForceSync, session }) => {
   const [formData, setFormData] = useState<CompanySettings>(settings);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backupImportRef = useRef<HTMLInputElement>(null);
+  const [syncingCloud, setSyncingCloud] = useState(false);
 
   const handleInputChange = (field: keyof CompanySettings, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -131,6 +149,171 @@ const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave }) =
                </button>
             </div>
           </form>
+
+          {/* Banco de Dados & Sincronização */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
+              <Database className="text-emerald-600" size={20} />
+              Central de Dados & Sincronização
+            </h2>
+
+            <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+              Os dados deste sistema são armazenados prioritariamente no seu navegador local (Modo Offline) para segurança e rapidez. Quando conectado à internet, você pode sincronizar os seus dados locais com a nuvem do Google Firebase ou exportar backups em arquivos.
+            </p>
+
+            {/* Counts Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+              {[
+                { label: 'Fornecedores', count: (() => { try { return JSON.parse(localStorage.getItem('rb_suppliers_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-emerald-100 bg-emerald-50/10 text-emerald-800' },
+                { label: 'Contratos', count: (() => { try { return JSON.parse(localStorage.getItem('rb_contracts_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-blue-100 bg-blue-50/10 text-blue-800' },
+                { label: 'Projetos', count: (() => { try { return JSON.parse(localStorage.getItem('rb_projects_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-purple-100 bg-purple-50/10 text-purple-800' },
+                { label: 'Unidades', count: (() => { try { return JSON.parse(localStorage.getItem('rb_units_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-indigo-100 bg-indigo-50/10 text-indigo-800' },
+                { label: 'Processos', count: (() => { try { return JSON.parse(localStorage.getItem('rb_processos_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-amber-100 bg-amber-50/10 text-amber-800' },
+                { label: 'Projetos F.Up', count: (() => { try { return JSON.parse(localStorage.getItem('rb_followup_projects_v1') || '[]').length } catch(e) { return 0 } })(), color: 'border-rose-100 bg-rose-50/10 text-rose-800' },
+              ].map((item, i) => (
+                <div key={i} className={`p-4 border rounded-xl flex flex-col justify-between ${item.color}`}>
+                  <span className="text-[10px] font-bold tracking-wider uppercase opacity-80">{item.label}</span>
+                  <span className="text-xl font-extrabold mt-1">{item.count} <span className="text-xs font-normal opacity-75">itens</span></span>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const keys = [
+                      'rb_suppliers_v1',
+                      'rb_projects_v1',
+                      'rb_units_v1',
+                      'rb_service_categories_v1',
+                      'rb_contracts_v1',
+                      'rb_processos_v1',
+                      'rb_followup_projects_v1',
+                      'rb_followup_history_v1',
+                      'rb_settings_v1'
+                    ];
+                    const backupData: Record<string, any> = {};
+                    keys.forEach(key => {
+                      const value = localStorage.getItem(key);
+                      if (value) {
+                        try {
+                          backupData[key] = JSON.parse(value);
+                        } catch (e) {
+                          backupData[key] = value;
+                        }
+                      }
+                    });
+
+                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `backup_sistema_rb_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    alert("Falha ao exportar backup: " + err.message);
+                  }
+                }}
+                className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/20 hover:text-emerald-800 transition-all uppercase tracking-widest flex-1 cursor-pointer"
+              >
+                <Download size={14} className="mr-2 text-emerald-600" />
+                Baixar Backup JSON
+              </button>
+
+              <button
+                type="button"
+                onClick={() => backupImportRef.current?.click()}
+                className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:border-blue-300 hover:bg-blue-50/20 hover:text-blue-800 transition-all uppercase tracking-widest flex-1 cursor-pointer"
+              >
+                <UploadCloud size={14} className="mr-2 text-blue-600" />
+                Importar Backup JSON
+              </button>
+
+              <input
+                type="file"
+                ref={backupImportRef}
+                accept=".json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      try {
+                        const backupData = JSON.parse(e.target?.result as string);
+                        if (backupData && typeof backupData === 'object') {
+                          Object.entries(backupData).forEach(([key, value]) => {
+                            if (key.startsWith('rb_')) {
+                              localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                            }
+                          });
+                          alert("Backup importado com sucesso no navegador! A página será reiniciada para atualizar todos os módulos.");
+                          if (onDataImported) onDataImported();
+                          window.location.reload();
+                        } else {
+                          alert("Formato de arquivo de backup inválido.");
+                        }
+                      } catch (err: any) {
+                        alert("Falha ao ler arquivo de backup: " + err.message);
+                      }
+                    };
+                    reader.readAsText(file);
+                  }
+                }}
+                className="hidden"
+              />
+            </div>
+
+            {/* Cloud Sync section */}
+            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-left">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 uppercase tracking-widest">
+                  Nuvem Ativa
+                </span>
+                <p className="text-xs font-semibold text-gray-750 mt-1.5">Sincronização Online com Firebase</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">ID da Sessão: <span className="font-bold text-gray-600">{session?.user?.email || 'Nenhum usuário ativo'}</span></p>
+              </div>
+
+              <button
+                type="button"
+                disabled={syncingCloud || session?.isOffline}
+                onClick={async () => {
+                  if (!onForceSync) return;
+                  setSyncingCloud(true);
+                  try {
+                    const success = await onForceSync();
+                    if (success) {
+                      alert("Excelente! Todos os seus dados locais e novos registros foram sincronizados com sucesso e salvos na nuvem do Google Firebase!");
+                    } else {
+                      alert("Ocorreu uma falha ao sincronizar. Certifique-se de que sua conta de internet está ativa e que possui permissão de escrita.");
+                    }
+                  } catch (err: any) {
+                    alert("Erro ao realizar sincronização: " + err.message);
+                  } finally {
+                    setSyncingCloud(false);
+                  }
+                }}
+                className="w-full md:w-auto flex items-center justify-center px-6 py-3 bg-slate-900 border border-transparent text-xs font-black uppercase tracking-widest text-white rounded-xl hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {syncingCloud ? (
+                  <>
+                    <RefreshCw className="animate-spin mr-2" size={14} />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2" size={14} />
+                    Enviar dados para o Firebase
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
 
         </div>
 

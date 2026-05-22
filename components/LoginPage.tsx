@@ -13,7 +13,7 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => {
   const [loading, setLoading] = useState(false);
   const [login, setLogin] = useState('fecampos120@gmail.com');
-  const [password, setPassword] = useState('@adm2026');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<{message: string, isProvider: boolean, type?: 'info' | 'error' | 'success'} | null>(null);
 
   const handleGoogleLogin = async () => {
@@ -59,7 +59,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin, onCustomLogin }) => 
       } else if (err.code === 'auth/operation-not-allowed') {
         message = "O login por e-mail/senha não está ativado no Firebase Console. Vá em Authentication > Sign-in method e ative 'E-mail/senha'.";
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        message = "E-mail ou senha incorretos. Caso tenha esquecido, use o botão 'Recuperar Senha'. Certifique-se também de que o usuário existe no Firebase.";
+        message = `E-mail ou senha incorretos para o usuário "${login}".\n\n` + 
+                  "💡 Se você já fez login com o Google anteriormente usando este mesmo e-mail, por favor utilize o botão 'Google Login' de cor branca logo abaixo.\n\n" + 
+                  "Caso contrário, certifique-se de que a senha está correta ou utilize o botão 'Esqueci minha senha' para redefini-la.";
       }
       
       setError({ message, isProvider: false, type: 'error' });

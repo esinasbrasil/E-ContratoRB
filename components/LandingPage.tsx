@@ -1,13 +1,13 @@
 
 // v2.4 - Final Label Alignment with Logo
 import React from 'react';
-import { FileText, HardHat, ClipboardCheck, ArrowRight, History, ScanFace, Globe, FileClock, Search } from 'lucide-react';
+import { FileText, HardHat, ClipboardCheck, ArrowRight, History, ScanFace, Globe, FileClock, Search, ClipboardList } from 'lucide-react';
 import Logo from './Logo';
 
 import { UserRole } from '../types';
 
 interface LandingPageProps {
-  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal' | 'followup_admin' | 'followup_consult') => void;
+  onSelectModule: (module: 'contracts' | 'engineering' | 'compliance' | 'procedures' | 'portaria' | 'portal' | 'followup_admin' | 'followup_consult' | 'vendor_list') => void;
   userRole?: UserRole;
 }
 
@@ -97,6 +97,25 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectModule, userRole = 'a
             </p>
             <div className="mt-auto flex items-center text-orange-600 font-black text-xs uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform">
               Gestão Requisitos <ArrowRight size={16} className="ml-2" strokeWidth={3} />
+            </div>
+          </div>
+        )}
+
+        {/* Vendor List */}
+        {userRole === 'admin' && (
+          <div 
+            onClick={() => onSelectModule('vendor_list')}
+            className="bg-white rounded-[3rem] shadow-2xl p-10 cursor-pointer transform transition-all hover:-translate-y-2 hover:shadow-emerald-950/10 border border-slate-100 group flex flex-col items-start"
+          >
+            <div className="w-20 h-20 bg-emerald-50 rounded-[2rem] flex items-center justify-center mb-8 group-hover:bg-[#0a5c43] transition-all duration-300">
+              <ClipboardList size={36} className="text-[#0a5c43] group-hover:text-white" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Vendor List Construtoras</h2>
+            <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed tracking-tight flex-1">
+              Catálogo de construtoras homologadas organizadas por porte de atuação, especialidade, e conformidade de campo.
+            </p>
+            <div className="mt-auto flex items-center text-[#0a5c43] font-black text-xs uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform">
+              Ver Catálogo <ArrowRight size={16} className="ml-2" strokeWidth={3} />
             </div>
           </div>
         )}

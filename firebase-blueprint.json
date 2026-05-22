@@ -207,6 +207,10 @@
       "schema": "Contract",
       "description": "Contracts collection"
     },
+    "/contracts/{contractId}/attachments/{attachmentId}": {
+      "schema": "object",
+      "description": "Heavy file attachments for contracts"
+    },
     "/processos/{processoId}": {
       "schema": "Procedure",
       "description": "Procedures tracking collection"

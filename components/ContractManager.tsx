@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Contract, Supplier, CompanySettings, Unit } from '../types';
 import { FileText, Download, DollarSign, Building, PlusCircle, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { mergeAndSavePDF } from '../services/pdfService';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
 interface ContractManagerProps {
@@ -34,23 +34,44 @@ const ContractManager: React.FC<ContractManagerProps> = ({
       const unit = units.find(u => u.id === contract.details.unitId) || 
                    units.find(u => u.name === contract.details.serviceLocation);
       
-      // Buscar anexos pesados da subcoleção, pois o documento principal está "leve"
-      const attachmentsSnapshot = await getDocs(collection(db, `contracts/${contract.id}/attachments`));
-      const fullAttachments = attachmentsSnapshot.docs.map(d => ({
-        name: d.data().name,
-        type: d.data().type,
-        fileData: d.data().fileData
-      }));
+      // Se os anexos já tiverem dados (legado), use-os. Caso contrário, busque na subcoleção.
+      let fullAttachments = contract.details.attachments || [];
+      const isMissingData = fullAttachments.length > 0 && fullAttachments.some(a => !a.fileData || a.fileData.length < 100);
+
+      if (isMissingData || fullAttachments.length === 0) {
+        try {
+          const path = `contracts/${contract.id}/attachments`;
+          const attachmentsSnapshot = await getDocs(collection(db, path));
+          if (!attachmentsSnapshot.empty) {
+            fullAttachments = attachmentsSnapshot.docs.map(d => ({
+              name: d.data().name,
+              type: d.data().type,
+              fileData: d.data().fileData
+            }));
+          }
+        } catch (fetchErr: any) {
+          console.warn("Aviso ao buscar anexos da subcoleção:", fetchErr);
+          // Se falhar a busca (ex: permissao ou offline), tenta usar o que tem
+        }
+      }
 
       const detailsWithFiles = {
         ...contract.details,
         attachments: fullAttachments
       };
                    
-      await mergeAndSavePDF(detailsWithFiles, supplier, settings, unit);
-    } catch (err) {
+      const success = await mergeAndSavePDF(detailsWithFiles, supplier, settings, unit);
+      if (!success) {
+        throw new Error("Erro ao gerar o arquivo PDF final.");
+      }
+    } catch (err: any) {
       console.error("Erro ao preparar download:", err);
-      alert("Erro ao carregar arquivos para o PDF.");
+      const msg = err?.message || "";
+      if (msg.includes("permissions") || msg.includes("permissão")) {
+        alert("Erro de Permissão: Você não tem autorização para acessar os arquivos deste contrato. Verifique se está logado corretamente.");
+      } else {
+        alert("Erro ao preparar download: " + (msg || "Erro desconhecido"));
+      }
     } finally {
       setDownloadingId(null);
     }
@@ -133,7 +154,7 @@ const ContractManager: React.FC<ContractManagerProps> = ({
                       <td className="px-6 py-4">
                         <div className="flex items-center text-sm font-medium text-gray-700">
                            <DollarSign size={14} className="mr-1 text-green-600" />
-                           {contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                           {(Number(contract.value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </div>
                       </td>
                       <td className="px-6 py-4">

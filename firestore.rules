@@ -20,16 +20,17 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() in [
+        (request.auth.token.get('email', '').lower() in [
           "fernando.campos.gruporb@gmail.com",
-          "fecampos120@gmail.com"
-        ] ||
+          "fecampos120@gmail.com",
+          "fcampos120@gmail.com"
+        ]) ||
         request.auth.uid == "9eKuuQvm28V6b2H7DD23JDQLbLG2"
       );
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
     // ===============================================================
@@ -37,69 +38,62 @@ service cloud.firestore {
     // ===============================================================
 
     match /test/connection {
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     match /suppliers/{supplierId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-      // Allow creation by authenticated users for onboarding (if needed)
-      allow create: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
     match /projects/{projectId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /units/{unitId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /service_categories/{categoryId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /contracts/{contractId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || isOwner(request.resource.data.user_id);
+      allow get, list, create, update, delete: if isSignedIn();
       
       match /attachments/{attachmentId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
+        allow get, list, create, update, delete: if isSignedIn();
       }
     }
 
     match /processos/{processoId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow get, list, create, update, delete: if isSignedIn();
+      
+      match /attachments/{attachmentId} {
+        allow get, list, create, update, delete: if isSignedIn();
+      }
     }
 
     match /procedure_settings/{settingsId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /company_settings/{settingsId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     match /visits/{visitId} {
-      // Allow authenticated users to read and write visits
-      allow read: if isSignedIn();
+      // Portaria search requires reading visits
+      allow read, list: if isSignedIn();
       allow write: if isSignedIn();
     }
 
     match /followup_projects/{id} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow write: if isAdmin();
     }
 
     match /followup_history/{id} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow write: if isAdmin();
     }
   }

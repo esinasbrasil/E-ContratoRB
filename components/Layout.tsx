@@ -12,7 +12,8 @@ import {
   LogOut,
   UserCircle,
   History,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
 import { auth } from '../firebase';
 import Logo from './Logo';
@@ -42,6 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onNavigate }) => {
     { id: 'contracts', label: 'Contratos', icon: <FileText size={20} /> },
     { id: 'procedures', label: 'Prazos e Fluxo', icon: <History size={20} /> },
     { id: 'access', label: 'Controle de Acesso', icon: <ShieldCheck size={20} /> },
+    { id: 'vendor_list', label: 'Vendor List', icon: <ClipboardList size={20} /> },
     { id: 'types', label: 'Tipos de Serviço', icon: <CheckSquare size={20} /> },
   ];
 

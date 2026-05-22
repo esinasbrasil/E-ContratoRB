@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, Plus, History, Clock, Search, Filter, Loader2, ChevronDown, ChevronUp, Save, MessageSquare, AlertCircle, FileText, ArrowRight } from 'lucide-react';
+import { Upload, Plus, History, Clock, Search, Filter, Loader2, ChevronDown, ChevronUp, Save, MessageSquare, AlertCircle, FileText, ArrowRight, Edit2 } from 'lucide-react';
 import { FollowUpProject, FollowUpHistory } from '../types';
 import { generateId } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,18 +11,30 @@ interface ProjectFollowUpProps {
   history: FollowUpHistory[];
   onAddProjects: (projects: FollowUpProject[]) => void;
   onAddHistory: (history: FollowUpHistory) => void;
+  onUpdateHistory: (history: FollowUpHistory) => void;
   onBack: () => void;
   userRole?: string;
   mode?: 'admin' | 'consult';
 }
 
-const ProjectFollowUp: React.FC<ProjectFollowUpProps> = ({ projects, history, onAddProjects, onAddHistory, onBack, userRole, mode = 'admin' }) => {
+const ProjectFollowUp: React.FC<ProjectFollowUpProps> = ({ 
+  projects, 
+  history, 
+  onAddProjects, 
+  onAddHistory, 
+  onUpdateHistory,
+  onBack, 
+  userRole, 
+  mode = 'admin' 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [showPasteArea, setShowPasteArea] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdminMode = mode === 'admin';
@@ -141,6 +153,17 @@ const ProjectFollowUp: React.FC<ProjectFollowUpProps> = ({ projects, history, on
 
     onAddHistory(newHistory);
     setNewComments(prev => ({ ...prev, [projectNumber]: '' }));
+  };
+
+  const handleUpdateHistory = (item: FollowUpHistory) => {
+    if (!editingContent.trim()) return;
+
+    onUpdateHistory({
+      ...item,
+      comment: editingContent.trim()
+    });
+    setEditingHistoryId(null);
+    setEditingContent('');
   };
 
   const filteredProjects = useMemo(() => {
@@ -506,10 +529,49 @@ const ProjectFollowUp: React.FC<ProjectFollowUpProps> = ({ projects, history, on
                                         {new Date(h.date).toLocaleString('pt-BR')}
                                       </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm inline-block min-w-[200px]">
-                                      <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                                        {h.comment}
-                                      </p>
+                                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm inline-block min-w-[200px] w-full">
+                                      {editingHistoryId === h.id ? (
+                                        <div className="space-y-3">
+                                          <textarea 
+                                            value={editingContent}
+                                            onChange={(e) => setEditingContent(e.target.value)}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                                            rows={3}
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <button 
+                                              onClick={() => setEditingHistoryId(null)}
+                                              className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600"
+                                            >
+                                              Cancelar
+                                            </button>
+                                            <button 
+                                              onClick={() => handleUpdateHistory(h)}
+                                              className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                            >
+                                              Salvar
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="group relative pr-8">
+                                          <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                                            {h.comment}
+                                          </p>
+                                          {isAdminMode && (
+                                            <button 
+                                              onClick={() => {
+                                                setEditingHistoryId(h.id);
+                                                setEditingContent(h.comment);
+                                              }}
+                                              className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-emerald-600 transition-all flex items-center"
+                                            >
+                                              <Edit2 size={12} />
+                                              <span className="text-[8px] font-bold uppercase ml-1">Editar</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
