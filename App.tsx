@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Loader2, AlertTriangle } from 'lucide-react';
+import { LogOut, Loader2, AlertTriangle, Database, RefreshCw } from 'lucide-react';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
 import EngineeringModule from './components/EngineeringModule';
@@ -108,7 +108,9 @@ function handleFirestoreError(error: any, operationType: OperationType, path: st
     return true;
   }
   
-  throw new Error(JSON.stringify(errInfo));
+  // Do not throw for non-quota errors to avoid crashing the entire React app runtime.
+  // Instead, log the detailed warning and allow the app to operate in fallback mode safely.
+  return false;
 }
 
 const App: React.FC = () => {
@@ -144,6 +146,54 @@ const App: React.FC = () => {
   const [contractWizardSupplierId, setContractWizardSupplierId] = useState<string | 'new' | null>(null);
   const [analyzingRisk, setAnalyzingRisk] = useState<string | null>(null);
   const [riskReport, setRiskReport] = useState<{ id: string, text: string } | null>(null);
+
+  const [offlineCounts, setOfflineCounts] = useState<{
+    contracts: number;
+    suppliers: number;
+    projects: number;
+    units: number;
+    service_categories: number;
+    processos: number;
+    followup_projects: number;
+    followup_history: number;
+  }>({
+    contracts: 0,
+    suppliers: 0,
+    projects: 0,
+    units: 0,
+    service_categories: 0,
+    processos: 0,
+    followup_projects: 0,
+    followup_history: 0,
+  });
+
+  useEffect(() => {
+    const getCount = (key: string) => {
+      try {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          return Array.isArray(parsed) ? parsed.length : 0;
+        }
+      } catch (e) {}
+      return 0;
+    };
+
+    setOfflineCounts({
+      contracts: getCount('rb_contracts_v1'),
+      suppliers: getCount('rb_suppliers_v1'),
+      projects: getCount('rb_projects_v1'),
+      units: getCount('rb_units_v1'),
+      service_categories: getCount('rb_service_categories_v1'),
+      processos: getCount('rb_processos_v1'),
+      followup_projects: getCount('rb_followup_projects_v1'),
+      followup_history: getCount('rb_followup_history_v1'),
+    });
+  }, [suppliers, projects, contracts, processos, followupProjects, followupHistory]);
+
+  const totalOfflineItems = Object.values(offlineCounts).reduce((a, b) => a + b, 0);
+  const isStateEmpty = suppliers.length === 0 && projects.length === 0 && contracts.length === 0 && processos.length === 0;
+  const showRestoreBanner = session && !session.isOffline && totalOfflineItems > 0 && isStateEmpty;
 
   // --- PERSISTÊNCIA LOCAL (FALLBACK) ---
   
@@ -935,8 +985,61 @@ const App: React.FC = () => {
                  </button>
               </div>
               {loading && (
-                <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-emerald-600 z-50">
+                <div className="fixed bottom-10 right-10 bg-white shadow-2xl p-4 rounded-3xl border border-slate-100 flex items-center gap-3 text-xs font-black text-[#064e3b] z-50">
                   <Loader2 size={16} className="animate-spin" /> Sincronizando Nuvem...
+                </div>
+              )}
+              {showRestoreBanner && (
+                <div className="mb-6 p-6 bg-emerald-50 border border-emerald-100 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex gap-4 items-start text-left">
+                    <div className="w-12 h-12 rounded-2xl bg-[#064e3b]/10 flex items-center justify-center shrink-0">
+                      <Database className="text-[#064e3b]" size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Dados Locais Detectados no Navegador!</h3>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                        Identificamos <span className="font-bold text-[#064e3b]">{totalOfflineItems} registros</span> salvos de forma protegida localmente nesta máquina (incluindo fornecedores, contratos, projetos e fluxos). Seu banco de dados na nuvem está vazio ou não sincronizou ainda.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {offlineCounts.suppliers > 0 && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-[10px] text-emerald-800 font-bold border border-emerald-200">{offlineCounts.suppliers} Fornecedores</span>}
+                        {offlineCounts.contracts > 0 && <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-[10px] text-blue-800 font-bold border border-blue-200">{offlineCounts.contracts} Contratos</span>}
+                        {offlineCounts.projects > 0 && <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-[10px] text-purple-800 font-bold border border-purple-200">{offlineCounts.projects} Projetos</span>}
+                        {offlineCounts.processos > 0 && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-[10px] text-amber-800 font-bold border border-amber-200">{offlineCounts.processos} Fluxos</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 w-full md:w-auto self-stretch md:self-auto shrink-0">
+                    <button
+                      onClick={async () => {
+                        const success = await forceSync();
+                        if (success) {
+                          alert("Excelente! Todos os seus dados locais e registros foram sincronizados com sucesso na nuvem do Google Firebase!");
+                        }
+                      }}
+                      className="flex-1 md:flex-initial px-5 py-3 rounded-2xl bg-[#064e3b] hover:bg-[#043327] text-white text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/10 cursor-pointer transition-colors"
+                    >
+                      <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                      Sincronizar com Nuvem
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOfflineMode(true);
+                        setSession({ 
+                          user: { 
+                            uid: 'offline_user', 
+                            email: session?.user?.email || 'fecampos120@gmail.com', 
+                            displayName: 'Administrador (Offline)' 
+                          },
+                          isOffline: true
+                        });
+                        setUserRole('admin');
+                        reloadFromLocalStorage();
+                      }}
+                      className="px-5 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+                    >
+                      Usar Offline
+                    </button>
+                  </div>
                 </div>
               )}
               {activeTab === 'dashboard' && <Dashboard stats={{ totalSuppliers: suppliers.length, activeProjects: projects.filter(p => p.status === 'Active').length, contractsGenerated: contracts.length, pendingHomologations: suppliers.filter(s => s.status === SupplierStatus.PENDING).length }} suppliersData={suppliers} projectsData={projects} />}
